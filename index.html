@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QueueLess – Join Queue</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+      padding-top: 50px;
+    }
+    input {
+      padding: 10px;
+      width: 220px;
+      border-radius: 6px;
+      border: none;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #22c55e;
+      cursor: pointer;
+    }
+    .box {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      width: 300px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="box">
+    <h2>QueueLess 🟢</h2>
+    <p>Enter your full name</p>
+
+    <input id="nameInput" placeholder="Full name" />
+    <br>
+    <button onclick="joinQueue()">Join Queue</button>
+
+    <p id="status"></p>
+  </div>
+
+<script>
+  let currentUser = null;
+
+  function getQueue() {
+    return JSON.parse(localStorage.getItem("queue")) || [];
+  }
+
+  function saveQueue(queue) {
+    localStorage.setItem("queue", JSON.stringify(queue));
+  }
+
+  function joinQueue() {
+    const nameInput = document.getElementById("nameInput");
+    const name = nameInput.value.trim();
+
+    if (name === "") {
+      alert("Please enter your full name");
+      return;
+    }
+
+    let queue = getQueue();
+
+    const existingIndex = queue.indexOf(name);
+    if (existingIndex !== -1) {
+      currentUser = name;
+      document.getElementById("status").innerText =
+        "You are already in the queue. Your number is " + (existingIndex + 1);
+      return;
+    }
+
+    queue.push(name);
+    saveQueue(queue);
+    currentUser = name;
+
+    document.getElementById("status").innerText =
+      "Joined successfully. Your queue number is " + queue.length;
+
+    nameInput.value = "";
+  }
+
+  function checkStatus() {
+    if (!currentUser) return;
+
+    const queue = getQueue();
+    const index = queue.indexOf(currentUser);
+
+    if (index === -1) {
+      document.getElementById("status").innerText =
+        "✅ Your turn is completed. Thank you!";
+      currentUser = null;
+    } else {
+      document.getElementById("status").innerText =
+        "You are in the queue. Your number is " + (index + 1);
+    }
+  }
+
+  // 🔁 Auto check every second
+  setInterval(checkStatus, 1000);
+</script>
+
+
+</body>
+</html>

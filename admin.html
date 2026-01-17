@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>QueueLess – Admin</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #020617;
+      color: white;
+      text-align: center;
+      padding-top: 50px;
+    }
+    button {
+      padding: 12px 20px;
+      font-size: 16px;
+      margin: 10px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      background: #3b82f6;
+    }
+    .box {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      width: 320px;
+      margin: auto;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="box">
+    <h2>Admin Panel 🔧</h2>
+<p>Scan to join queue</p>
+<img id="qrCode" alt="QR Code" />
+    <p id="nowServing">No one is being served</p>
+    <p id="queueList">Queue is empty</p>
+
+    <button onclick="nextPerson()">Next</button>
+  </div>
+
+  <script>
+  function getQueue() {
+    return JSON.parse(localStorage.getItem("queue")) || [];
+  }
+
+  function saveQueue(queue) {
+    localStorage.setItem("queue", JSON.stringify(queue));
+  }
+
+  function updateDisplay() {
+    const queue = getQueue();
+
+    if (queue.length === 0) {
+      document.getElementById("nowServing").innerText =
+        "No one is being served";
+      document.getElementById("queueList").innerText =
+        "Queue is empty";
+    } else {
+      document.getElementById("nowServing").innerText =
+        "Now serving: " + queue[0];
+      document.getElementById("queueList").innerText =
+        "Waiting: " + queue.slice(1).join(", ");
+    }
+  }
+
+  function nextPerson() {
+    let queue = getQueue();
+    if (queue.length > 0) {
+      queue.shift();
+      saveQueue(queue);
+    }
+    updateDisplay();
+  }
+
+  // 🔗 Generate QR for user page
+  function generateQR() {
+    const url = window.location.origin + "/index.html";
+    const qrUrl =
+      "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
+      encodeURIComponent(url);
+
+    document.getElementById("qrCode").src = qrUrl;
+  }
+
+  setInterval(updateDisplay, 1000);
+  updateDisplay();
+  generateQR();
+</script>
+
+</body>
+</html>

@@ -76,26 +76,34 @@
 
   let myToken = null;
 
-  function joinQueue() {
-    const name = document.getElementById("nameInput").value.trim();
-    if (!name) return alert("Enter your name");
+ function joinQueue() {
+  const name = document.getElementById("nameInput").value.trim();
+  if (!name) {
+    alert("Enter your name");
+    return;
+  }
 
-    queueRef.once("value", snapshot => {
+  queueRef.once("value")
+    .then(snapshot => {
       const data = snapshot.val() || {};
       const token = Object.keys(data).length + 1;
 
-      queueRef.child(token).set({
+      return queueRef.child(token).set({
         name: name,
         status: "waiting"
+      }).then(() => {
+        myToken = token;
+        document.getElementById("tokenInfo").innerText =
+          "Your token number is: " + token;
+        document.getElementById("nameInput").value = "";
       });
-
-      myToken = token;
-      document.getElementById("tokenInfo").innerText =
-        "Your token number is: " + token;
-
-      document.getElementById("nameInput").value = "";
+    })
+    .catch(error => {
+      alert("Error joining queue");
+      console.error(error);
     });
-  }
+}
+
 
   // 🔄 LIVE QUEUE UPDATES FOR USER
   queueRef.on("value", snapshot => {

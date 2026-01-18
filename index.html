@@ -1,11 +1,10 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
   <title>QueueLess</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: Arial;
       background: #020617;
       color: white;
       text-align: center;
@@ -14,9 +13,9 @@
     .box {
       background: #1e293b;
       padding: 20px;
-      border-radius: 12px;
       width: 320px;
       margin: auto;
+      border-radius: 12px;
     }
     input, button {
       padding: 10px;
@@ -42,70 +41,75 @@
   <input id="age" type="number" placeholder="Age">
   <button onclick="joinQueue()">Join Queue</button>
 
-  <p id="tokenInfo"></p>
   <p id="status"></p>
 </div>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
 const firebaseConfig = {
-  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app/"
+  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app"
 };
 firebase.initializeApp(firebaseConfig);
 
 const queueRef = firebase.database().ref("queue");
-const nowServingRef = firebase.database().ref("nowServing");
 
-let myToken = null;
+let myKey = null;
 
-// JOIN QUEUE
 function joinQueue() {
-  const name = document.getElementById("name").value.trim().toLowerCase();
+  const nameRaw = document.getElementById("name").value.trim();
   const age = document.getElementById("age").value.trim();
+  if (!nameRaw || !age) return;
 
-  if (!name || !age) return;
+  const name = nameRaw.toLowerCase();
 
   queueRef.once("value", snap => {
-    let token = 1;
-    if (snap.exists()) {
-      const tokens = Object.values(snap.val()).map(p => p.token);
-      token = Math.max(...tokens) + 1;
+    const data = snap.val();
+
+    if (data) {
+      for (let key in data) {
+        if (
+          data[key].name === name &&
+          data[key].age == age
+        ) {
+          myKey = key;
+          document.getElementById("status").innerText =
+            "You are already in the queue.";
+          return;
+        }
+      }
     }
 
-    queueRef.push({
+    const newRef = queueRef.push({
       name,
+      displayName: nameRaw,
       age,
-      token
+      joinedAt: Date.now()
     });
 
-    myToken = token;
-    document.getElementById("tokenInfo").innerText =
-      "Your token number: " + token;
+    myKey = newRef.key;
+    document.getElementById("status").innerText =
+      "Joined successfully. Please wait.";
   });
 }
 
-// LISTEN FOR NOW SERVING
-nowServingRef.on("value", snap => {
-  if (!snap.exists() || myToken === null) return;
+queueRef.on("value", snap => {
+  if (!myKey) return;
+  const data = snap.val();
+  if (!data || !data[myKey]) return;
 
-  const nowServing = snap.val();
-  const diff = myToken - nowServing;
+  const keys = Object.keys(data);
+  const index = keys.indexOf(myKey);
 
-  let message = "";
+  let msg = "";
+  if (index > 5) msg = "Please wait. Your turn will come.";
+  else if (index === 5) msg = "Please wait. Your turn will come.";
+  else if (index < 5 && index > 1) msg = "🟡 You are almost there.";
+  else if (index === 1) msg = "🟢 You’re next. Please stay nearby.";
+  else if (index === 0) msg = "🔵 You are being served now.";
 
-  if (diff > 5 || diff === 5) {
-    message = "Please wait. Your turn will come.";
-  } else if (diff < 5 && diff > 1) {
-    message = "🟡 You are almost there. Please be ready.";
-  } else if (diff === 1) {
-    message = "🟢 You’re next. Please stay nearby.";
-  } else if (diff === 0) {
-    message = "🔵 You are being served now.";
-  }
-
-  document.getElementById("status").innerText = message;
+  document.getElementById("status").innerText = msg;
 });
 </script>
 

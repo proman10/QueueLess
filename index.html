@@ -18,7 +18,7 @@
       width: 320px;
       margin: auto;
     }
-    input, button {
+    input, button, select {
       padding: 10px;
       width: 90%;
       margin-top: 10px;
@@ -40,13 +40,20 @@
 <body>
 
 <div class="box">
-  <h2>Join Queue</h2>
-  <p>Enter your full name and age</p>
+  <!-- 🌍 Language Selector -->
+  <select id="languageSelect" onchange="changeLanguage()">
+    <option value="en">English</option>
+    <option value="hi">हिन्दी</option>
+    <option value="te">తెలుగు</option>
+  </select>
+
+  <h2 id="titleText">Join Queue</h2>
+  <p id="instructionText">Enter your full name and age</p>
 
   <input id="nameInput" placeholder="Full Name">
   <input id="ageInput" type="number" placeholder="Age">
 
-  <button onclick="joinQueue()">Join Queue</button>
+  <button onclick="joinQueue()" id="joinBtn">Join Queue</button>
 
   <p id="tokenInfo"></p>
 
@@ -76,6 +83,50 @@
 
   let myToken = null;
 
+  // 🌍 Language texts
+  const texts = {
+    en: {
+      title: "Join Queue",
+      instruction: "Enter your full name and age",
+      join: "Join Queue",
+      serving: "Now serving",
+      estimate: "Estimated waiting time",
+      done: "Your turn is done ✔"
+    },
+    hi: {
+      title: "कतार में जुड़ें",
+      instruction: "अपना पूरा नाम और उम्र दर्ज करें",
+      join: "कतार में जुड़ें",
+      serving: "अभी सेवा में",
+      estimate: "अनुमानित प्रतीक्षा समय",
+      done: "आपकी बारी पूरी हो गई ✔"
+    },
+    te: {
+      title: "క్యూలో చేరండి",
+      instruction: "మీ పూర్తి పేరు మరియు వయసు నమోదు చేయండి",
+      join: "క్యూలో చేరండి",
+      serving: "ప్రస్తుతం సేవలో",
+      estimate: "అంచనా వేచి ఉండే సమయం",
+      done: "మీ వంతు పూర్తైంది ✔"
+    }
+  };
+
+  let currentLang = "en";
+
+  function changeLanguage() {
+    const lang = document.getElementById("languageSelect").value;
+    currentLang = lang;
+
+    document.getElementById("titleText").innerText = texts[lang].title;
+    document.getElementById("instructionText").innerText = texts[lang].instruction;
+    document.getElementById("joinBtn").innerText = texts[lang].join;
+
+    document.getElementById("nowServing").innerText =
+      texts[lang].serving + ": —";
+    document.getElementById("estimate").innerText =
+      texts[lang].estimate + ": —";
+  }
+
   function joinQueue() {
     const nameRaw = document.getElementById("nameInput").value.trim();
     const age = document.getElementById("ageInput").value.trim();
@@ -85,14 +136,13 @@
       return;
     }
 
-    // normalize name (case-insensitive + trim)
     const normalizedName = nameRaw.toLowerCase();
 
     queueRef.once("value")
       .then(snapshot => {
         const data = snapshot.val() || {};
 
-        // 🚫 duplicate check (same name + same age)
+        // 🚫 duplicate check
         for (let token in data) {
           if (
             data[token].name === normalizedName &&
@@ -118,37 +168,33 @@
           document.getElementById("nameInput").value = "";
           document.getElementById("ageInput").value = "";
         });
-      })
-      .catch(error => {
-        console.error(error);
-        alert("Error joining queue");
       });
   }
 
-  // 🔄 Live updates for user
+  // 🔄 Live queue updates
   queueRef.on("value", snapshot => {
     const data = snapshot.val();
 
     if (!data) {
-      document.getElementById("nowServing").innerText = "Now serving: —";
+      document.getElementById("nowServing").innerText =
+        texts[currentLang].serving + ": —";
       document.getElementById("estimate").innerText =
-        "Estimated waiting time: —";
+        texts[currentLang].estimate + ": —";
       return;
     }
 
     const tokens = Object.keys(data);
     document.getElementById("nowServing").innerText =
-      "Now serving: Token " + tokens[0];
+      texts[currentLang].serving + ": Token " + tokens[0];
 
     if (myToken) {
       const position = tokens.indexOf(String(myToken));
       if (position >= 0) {
-        const avgTimePerPatient = 5;
         document.getElementById("estimate").innerText =
-          "Estimated waiting time: " + (position * avgTimePerPatient) + " minutes";
+          texts[currentLang].estimate + ": " + (position * 5) + " minutes";
       } else {
         document.getElementById("estimate").innerText =
-          "Your turn is done ✔";
+          texts[currentLang].done;
       }
     }
   });

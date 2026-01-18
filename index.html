@@ -29,6 +29,11 @@
       color: white;
       font-size: 16px;
     }
+    #token {
+      font-size: 18px;
+      margin-top: 10px;
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -38,7 +43,7 @@
 
   <input id="name" placeholder="Full Name">
   <input id="age" type="number" placeholder="Age">
-  <button onclick="join()">Join Queue</button>
+  <button onclick="joinQueue()">Join Queue</button>
 
   <p id="token"></p>
   <p id="status"></p>
@@ -53,51 +58,61 @@ firebase.initializeApp({
 });
 
 const queueRef = firebase.database().ref("queue");
-let myKey = null;
 
-function join() {
+// 🔒 Persist key
+let myKey = localStorage.getItem("queueKey");
+
+function joinQueue() {
   const rawName = name.value.trim();
   const ageVal = age.value.trim();
   if (!rawName || !ageVal) return;
 
-  const clean = rawName.toLowerCase();
+  const cleanName = rawName.toLowerCase();
 
   queueRef.once("value", snap => {
     const data = snap.val();
+
     if (data) {
       for (let k in data) {
-        if (data[k].name === clean && data[k].age === ageVal) {
+        if (data[k].name === cleanName && data[k].age === ageVal) {
           myKey = k;
-          status.innerText = "You are already in the queue.";
+          localStorage.setItem("queueKey", myKey);
           return;
         }
       }
     }
 
     const ref = queueRef.push({
-      name: clean,
+      name: cleanName,
       displayName: rawName,
       age: ageVal,
       joinedAt: Date.now()
     });
 
     myKey = ref.key;
+    localStorage.setItem("queueKey", myKey);
   });
 }
 
+// 🔁 Live updates
 queueRef.on("value", snap => {
   if (!myKey) return;
 
   const data = snap.val();
-  if (!data || !data[myKey]) return;
+  if (!data || !data[myKey]) {
+    token.innerText = "";
+    status.innerText = "You have been served.";
+    localStorage.removeItem("queueKey");
+    return;
+  }
 
   const sorted = Object.entries(data)
     .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
 
-  const index = sorted.findIndex(i => i[0] === myKey);
+  const index = sorted.findIndex(e => e[0] === myKey);
   const tokenNo = index + 1;
 
-  token.innerText = "Your Token Number: " + tokenNo;
+  token.innerText = "🎟️ Your Token Number: " + tokenNo;
 
   if (tokenNo > 5) {
     status.innerText = "Please wait. Your turn will come.";

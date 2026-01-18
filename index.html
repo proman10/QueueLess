@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+  <meta charset="UTF-8">
   <title>QueueLess</title>
   <style>
     body {
-      font-family: Arial;
+      font-family: Arial, sans-serif;
       background: #020617;
       color: white;
       text-align: center;
@@ -13,9 +14,9 @@
     .box {
       background: #1e293b;
       padding: 20px;
+      border-radius: 12px;
       width: 320px;
       margin: auto;
-      border-radius: 12px;
     }
     input, button {
       padding: 10px;
@@ -25,7 +26,8 @@
       border: none;
     }
     button {
-      background: #22c55e;
+      background: #3b82f6;
+      color: white;
       font-size: 16px;
       cursor: pointer;
     }
@@ -38,8 +40,9 @@
 
   <input id="name" placeholder="Full Name">
   <input id="age" type="number" placeholder="Age">
-  <button onclick="joinQueue()">Join</button>
+  <button onclick="joinQueue()">Join Queue</button>
 
+  <p id="tokenInfo"></p>
   <p id="status"></p>
 </div>
 
@@ -48,52 +51,63 @@
 
 <script>
 const firebaseConfig = {
-  databaseURL: "YOUR_DATABASE_URL_HERE"
+  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app/"
 };
 firebase.initializeApp(firebaseConfig);
 
 const queueRef = firebase.database().ref("queue");
-const settingsRef = firebase.database().ref("settings");
+const nowServingRef = firebase.database().ref("nowServing");
 
+let myToken = null;
+
+// JOIN QUEUE
 function joinQueue() {
-  settingsRef.child("queuePaused").once("value", snap => {
-    if (snap.val() === true) {
-      document.getElementById("status").innerText =
-        "Queue is temporarily closed. Please wait.";
-      return;
-    }
-
-    const name = document.getElementById("name").value.trim();
-    const age = document.getElementById("age").value.trim();
-    if (!name || !age) return;
-
-    queueRef.push({
-      name: name.toLowerCase(),
-      age: age,
-      joinedAt: Date.now()
-    });
-  });
-}
-
-queueRef.on("value", snap => {
-  const data = snap.val();
-  if (!data) return;
-
-  const list = Object.values(data);
   const name = document.getElementById("name").value.trim().toLowerCase();
   const age = document.getElementById("age").value.trim();
 
-  const index = list.findIndex(p => p.name === name && p.age === age);
-  if (index === -1) return;
+  if (!name || !age) return;
 
-  let msg = "";
-  if (index === 0) msg = "🔵 You are being served now.";
-  else if (index === 1) msg = "🟢 You’re next. Please be ready.";
-  else if (index === 2) msg = "🟡 You’re almost next.";
-  else msg = "Please wait. People ahead: " + index;
+  queueRef.once("value", snap => {
+    let token = 1;
+    if (snap.exists()) {
+      const tokens = Object.values(snap.val()).map(p => p.token);
+      token = Math.max(...tokens) + 1;
+    }
 
-  document.getElementById("status").innerText = msg;
+    queueRef.push({
+      name,
+      age,
+      token
+    });
+
+    myToken = token;
+    document.getElementById("tokenInfo").innerText =
+      "Your token number: " + token;
+  });
+}
+
+// LISTEN FOR NOW SERVING
+nowServingRef.on("value", snap => {
+  if (!snap.exists() || myToken === null) return;
+
+  const nowServing = snap.val();
+  const diff = myToken - nowServing;
+
+  let message = "";
+
+  if (diff > 5 || diff === 5) {
+    message = "Please wait. Your turn will come.";
+  } else if (diff < 5 && diff > 1) {
+    message = "🟡 You are almost there. Please be ready.";
+  } else if (diff === 1) {
+    message = "🟢 You’re next. Please stay nearby.";
+  } else if (diff === 0) {
+    message = "🔵 You are being served now.";
+  }
+
+  document.getElementById("status").innerText = message;
 });
 </script>
+
 </body>
 </html>

@@ -3,7 +3,6 @@
 <head>
   <meta charset="UTF-8">
   <title>QueueLess – Admin</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -41,65 +40,31 @@
   <h2>Admin Panel 🔧</h2>
   <p>Scan to join queue</p>
 
-  <!-- ✅ FIXED QR CODE -->
-  <img
-    src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://proman10.github.io/QueueLess/index.html"
-    width="200"
-    alt="QR Code"
-  />
+  <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://proman10.github.io/QueueLess/index.html" width="200">
 
   <p id="nowServing">No one is being served</p>
   <ul id="queueList"></ul>
 
-  <!-- ✅ ONLY ONE BUTTON -->
   <button onclick="nextPerson()">Next</button>
 </div>
 
-<!-- 🔥 Firebase SDKs -->
+<!-- Firebase -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-  // 🔥 REPLACE WITH YOUR REAL FIREBASE CONFIG
   const firebaseConfig = {
-    apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
-  authDomain: "queueless-5a7e6.firebaseapp.com",
-  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "queueless-5a7e6",
-  storageBucket: "queueless-5a7e6.firebasestorage.app",
-  messagingSenderId: "403169758788",
-  appId: "1:403169758788:web:f6e02f17480a629df7f611",
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "YOUR_DATABASE_URL",
+    projectId: "YOUR_PROJECT",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "XXXX",
+    appId: "XXXX"
   };
 
   firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-  const queueRef = db.ref("queue");
-
-  function renderQueue(data) {
-    const nowServing = document.getElementById("nowServing");
-    const queueList = document.getElementById("queueList");
-    queueList.innerHTML = "";
-
-    if (!data) {
-      nowServing.innerText = "No one is being served";
-      queueList.innerHTML = "<li>Queue is empty</li>";
-      return;
-    }
-
-    const tokens = Object.keys(data);
-
-    tokens.forEach((token, index) => {
-      const person = data[token];
-      const li = document.createElement("li");
-      li.innerText = `Token ${token} - ${person.name} (${person.status})`;
-      queueList.appendChild(li);
-
-      if (index === 0 && person.status !== "serving") {
-        queueRef.child(token).update({ status: "serving" });
-        nowServing.innerText = "Now serving: Token " + token;
-      }
-    });
-  }
+  const queueRef = firebase.database().ref("queue");
 
   function nextPerson() {
     queueRef.once("value", snapshot => {
@@ -113,9 +78,27 @@
     });
   }
 
-  // 🔄 LIVE LISTENER
   queueRef.on("value", snapshot => {
-    renderQueue(snapshot.val());
+    const data = snapshot.val();
+    const list = document.getElementById("queueList");
+    const nowServing = document.getElementById("nowServing");
+
+    list.innerHTML = "";
+
+    if (!data) {
+      nowServing.innerText = "No one is being served";
+      list.innerHTML = "<li>Queue is empty</li>";
+      return;
+    }
+
+    const tokens = Object.keys(data);
+    nowServing.innerText = "Now serving: Token " + tokens[0];
+
+    tokens.forEach(token => {
+      const li = document.createElement("li");
+      li.innerText = "Token " + token + " - " + data[token].name;
+      list.appendChild(li);
+    });
   });
 </script>
 

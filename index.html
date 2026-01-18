@@ -3,54 +3,56 @@
 <head>
   <meta charset="UTF-8">
   <title>QueueLess – Join Queue</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
       font-family: Arial, sans-serif;
       background: #020617;
       color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    .card {
-      background: #0f172a;
-      padding: 20px;
-      border-radius: 14px;
-      width: 300px;
       text-align: center;
+      padding-top: 60px;
     }
-    input {
-      width: 90%;
+    .box {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 12px;
+      width: 320px;
+      margin: auto;
+    }
+    input, button {
       padding: 10px;
+      width: 90%;
+      margin-top: 10px;
       border-radius: 8px;
       border: none;
-      margin-bottom: 10px;
     }
     button {
-      padding: 10px;
-      width: 100%;
-      border: none;
-      border-radius: 8px;
-      background: #38bdf8;
-      font-weight: bold;
+      background: #3b82f6;
+      color: white;
+      font-size: 16px;
       cursor: pointer;
     }
-    #token {
+    .info {
       margin-top: 15px;
-      font-size: 18px;
+      font-size: 14px;
     }
   </style>
 </head>
 <body>
 
-<div class="card">
+<div class="box">
   <h2>Join Queue</h2>
   <p>Enter your full name</p>
-  <input id="nameInput" placeholder="Full Name" />
-  <button onclick="joinQueue()">Join</button>
-  <div id="token"></div>
+
+  <input id="nameInput" placeholder="Full Name">
+  <button onclick="joinQueue()">Join Queue</button>
+
+  <p id="tokenInfo"></p>
+
+  <!-- 🔔 NEW INFO FOR USER -->
+  <div class="info">
+    <p id="nowServing">Now serving: —</p>
+    <p id="estimate">Estimated waiting time: —</p>
+  </div>
 </div>
 
 <!-- Firebase -->
@@ -58,25 +60,25 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-  // 🔥 REPLACE THIS WITH YOUR FIREBASE CONFIG
   const firebaseConfig = {
-   apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
-  authDomain: "queueless-5a7e6.firebaseapp.com",
-  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "queueless-5a7e6",
-  storageBucket: "queueless-5a7e6.firebasestorage.app",
-  messagingSenderId: "403169758788",
-  appId: "1:403169758788:web:f6e02f17480a629df7f611",
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "YOUR_DATABASE_URL",
+    projectId: "YOUR_PROJECT",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "XXXX",
+    appId: "XXXX"
   };
 
   firebase.initializeApp(firebaseConfig);
   const db = firebase.database();
+  const queueRef = db.ref("queue");
+
+  let myToken = null;
 
   function joinQueue() {
     const name = document.getElementById("nameInput").value.trim();
-    if (!name) return alert("Enter your full name");
-
-    const queueRef = db.ref("queue");
+    if (!name) return alert("Enter your name");
 
     queueRef.once("value", snapshot => {
       const data = snapshot.val() || {};
@@ -87,12 +89,46 @@
         status: "waiting"
       });
 
-      document.getElementById("token").innerText =
-        "Your Token Number: " + token;
+      myToken = token;
+      document.getElementById("tokenInfo").innerText =
+        "Your token number is: " + token;
 
       document.getElementById("nameInput").value = "";
     });
   }
+
+  // 🔄 LIVE QUEUE UPDATES FOR USER
+  queueRef.on("value", snapshot => {
+    const data = snapshot.val();
+
+    if (!data) {
+      document.getElementById("nowServing").innerText =
+        "Now serving: —";
+      document.getElementById("estimate").innerText =
+        "Estimated waiting time: —";
+      return;
+    }
+
+    const tokens = Object.keys(data);
+
+    const currentToken = tokens[0];
+    document.getElementById("nowServing").innerText =
+      "Now serving: Token " + currentToken;
+
+    if (myToken) {
+      const position = tokens.indexOf(String(myToken));
+      if (position >= 0) {
+        const avgTimePerPatient = 5; // minutes (assumption)
+        const waitTime = position * avgTimePerPatient;
+
+        document.getElementById("estimate").innerText =
+          "Estimated waiting time: " + waitTime + " minutes";
+      } else {
+        document.getElementById("estimate").innerText =
+          "Your turn is done ✔";
+      }
+    }
+  });
 </script>
 
 </body>

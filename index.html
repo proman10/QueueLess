@@ -41,14 +41,15 @@
 
 <div class="box">
   <h2>Join Queue</h2>
-  <p>Enter your full name</p>
+  <p>Enter your full name and age</p>
 
   <input id="nameInput" placeholder="Full Name">
+  <input id="ageInput" type="number" placeholder="Age">
+
   <button onclick="joinQueue()">Join Queue</button>
 
   <p id="tokenInfo"></p>
 
-  <!-- 🔔 NEW INFO FOR USER -->
   <div class="info">
     <p id="nowServing">Now serving: —</p>
     <p id="estimate">Estimated waiting time: —</p>
@@ -61,76 +62,90 @@
 
 <script>
   const firebaseConfig = {
-     apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
-  authDomain: "queueless-5a7e6.firebaseapp.com",
-  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "queueless-5a7e6",
-  storageBucket: "queueless-5a7e6.firebasestorage.app",
-  messagingSenderId: "403169758788",
-  appId: "1:403169758788:web:f6e02f17480a629df7f611",
+    apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
+    authDomain: "queueless-5a7e6.firebaseapp.com",
+    databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "queueless-5a7e6",
+    storageBucket: "queueless-5a7e6.firebasestorage.app",
+    messagingSenderId: "403169758788",
+    appId: "1:403169758788:web:f6e02f17480a629df7f611"
   };
 
   firebase.initializeApp(firebaseConfig);
-  const db = firebase.database();
-  const queueRef = db.ref("queue");
+  const queueRef = firebase.database().ref("queue");
 
   let myToken = null;
 
- function joinQueue() {
-  const name = document.getElementById("nameInput").value.trim();
-  if (!name) {
-    alert("Enter your name");
-    return;
+  function joinQueue() {
+    const nameRaw = document.getElementById("nameInput").value.trim();
+    const age = document.getElementById("ageInput").value.trim();
+
+    if (!nameRaw || !age) {
+      alert("Enter name and age");
+      return;
+    }
+
+    // normalize name (case-insensitive + trim)
+    const normalizedName = nameRaw.toLowerCase();
+
+    queueRef.once("value")
+      .then(snapshot => {
+        const data = snapshot.val() || {};
+
+        // 🚫 duplicate check (same name + same age)
+        for (let token in data) {
+          if (
+            data[token].name === normalizedName &&
+            String(data[token].age) === String(age)
+          ) {
+            alert("You are already in the queue");
+            return;
+          }
+        }
+
+        const token = Object.keys(data).length + 1;
+
+        return queueRef.child(token).set({
+          name: normalizedName,
+          displayName: nameRaw,
+          age: age,
+          status: "waiting"
+        }).then(() => {
+          myToken = token;
+          document.getElementById("tokenInfo").innerText =
+            "Your token number is: " + token;
+
+          document.getElementById("nameInput").value = "";
+          document.getElementById("ageInput").value = "";
+        });
+      })
+      .catch(error => {
+        console.error(error);
+        alert("Error joining queue");
+      });
   }
 
-  queueRef.once("value")
-    .then(snapshot => {
-      const data = snapshot.val() || {};
-      const token = Object.keys(data).length + 1;
-
-      return queueRef.child(token).set({
-        name: name,
-        status: "waiting"
-      }).then(() => {
-        myToken = token;
-        document.getElementById("tokenInfo").innerText =
-          "Your token number is: " + token;
-        document.getElementById("nameInput").value = "";
-      });
-    })
-    .catch(error => {
-      alert("Error joining queue");
-      console.error(error);
-    });
-}
-
-
-  // 🔄 LIVE QUEUE UPDATES FOR USER
+  // 🔄 Live updates for user
   queueRef.on("value", snapshot => {
     const data = snapshot.val();
 
     if (!data) {
-      document.getElementById("nowServing").innerText =
-        "Now serving: —";
+      document.getElementById("nowServing").innerText = "Now serving: —";
       document.getElementById("estimate").innerText =
         "Estimated waiting time: —";
       return;
     }
 
     const tokens = Object.keys(data);
-
-    const currentToken = tokens[0];
     document.getElementById("nowServing").innerText =
-      "Now serving: Token " + currentToken;
+      "Now serving: Token " + tokens[0];
 
     if (myToken) {
       const position = tokens.indexOf(String(myToken));
       if (position >= 0) {
-        const avgTimePerPatient = 5; // minutes (assumption)
-        const waitTime = position * avgTimePerPatient;
-
+        const avgTimePerPatient = 5;
         document.getElementById("estimate").innerText =
-          "Estimated waiting time: " + waitTime + " minutes";
+          "Estimated waiting time: " + (position * avgTimePerPatient) + " minutes";
       } else {
         document.getElementById("estimate").innerText =
           "Your turn is done ✔";

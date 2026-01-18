@@ -40,7 +40,10 @@
   <h2>Admin Panel 🔧</h2>
   <p>Scan to join queue</p>
 
-  <img src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://proman10.github.io/QueueLess/index.html" width="200">
+  <img
+    src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://proman10.github.io/QueueLess/index.html"
+    width="200"
+  >
 
   <p id="nowServing">No one is being served</p>
   <ul id="queueList"></ul>
@@ -54,13 +57,13 @@
 
 <script>
   const firebaseConfig = {
-     apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
-  authDomain: "queueless-5a7e6.firebaseapp.com",
-  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "queueless-5a7e6",
-  storageBucket: "queueless-5a7e6.firebasestorage.app",
-  messagingSenderId: "403169758788",
-  appId: "1:403169758788:web:f6e02f17480a629df7f611",
+    apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
+    authDomain: "queueless-5a7e6.firebaseapp.com",
+    databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "queueless-5a7e6",
+    storageBucket: "queueless-5a7e6.firebasestorage.app",
+    messagingSenderId: "403169758788",
+    appId: "1:403169758788:web:f6e02f17480a629df7f611"
   };
 
   firebase.initializeApp(firebaseConfig);
@@ -96,7 +99,10 @@
 
     tokens.forEach(token => {
       const li = document.createElement("li");
-      li.innerText = "Token " + token + " - " + data[token].name;
+      li.innerText =
+        "Token " + token +
+        " - " + data[token].displayName +
+        " (Age: " + data[token].age + ")";
       list.appendChild(li);
     });
   });

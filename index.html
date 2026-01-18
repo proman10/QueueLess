@@ -4,7 +4,7 @@
   <title>QueueLess</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: Arial;
       background: #020617;
       color: white;
       text-align: center;
@@ -13,7 +13,7 @@
     .box {
       background: #1e293b;
       padding: 20px;
-      width: 320px;
+      width: 340px;
       margin: auto;
       border-radius: 12px;
     }
@@ -28,7 +28,6 @@
       background: #3b82f6;
       color: white;
       font-size: 16px;
-      cursor: pointer;
     }
   </style>
 </head>
@@ -39,8 +38,9 @@
 
   <input id="name" placeholder="Full Name">
   <input id="age" type="number" placeholder="Age">
-  <button onclick="joinQueue()">Join Queue</button>
+  <button onclick="join()">Join Queue</button>
 
+  <p id="token"></p>
   <p id="status"></p>
 </div>
 
@@ -48,78 +48,66 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-const firebaseConfig = {
+firebase.initializeApp({
   databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app"
-};
-firebase.initializeApp(firebaseConfig);
+});
 
 const queueRef = firebase.database().ref("queue");
-
 let myKey = null;
 
-/* JOIN QUEUE WITH DUPLICATE CHECK */
-function joinQueue() {
-  const rawName = document.getElementById("name").value.trim();
-  const age = document.getElementById("age").value.trim();
-  if (!rawName || !age) return;
+function join() {
+  const rawName = name.value.trim();
+  const ageVal = age.value.trim();
+  if (!rawName || !ageVal) return;
 
-  const name = rawName.toLowerCase();
+  const clean = rawName.toLowerCase();
 
   queueRef.once("value", snap => {
     const data = snap.val();
-
     if (data) {
-      for (let key in data) {
-        if (
-          data[key].name === name &&
-          data[key].age === age
-        ) {
-          myKey = key;
-          document.getElementById("status").innerText =
-            "You are already in the queue.";
+      for (let k in data) {
+        if (data[k].name === clean && data[k].age === ageVal) {
+          myKey = k;
+          status.innerText = "You are already in the queue.";
           return;
         }
       }
     }
 
     const ref = queueRef.push({
-      name: name,
+      name: clean,
       displayName: rawName,
-      age: age,
+      age: ageVal,
       joinedAt: Date.now()
     });
 
     myKey = ref.key;
-    document.getElementById("status").innerText =
-      "Joined successfully. Please wait.";
   });
 }
 
-/* WAIT MESSAGE LOGIC */
 queueRef.on("value", snap => {
   if (!myKey) return;
 
   const data = snap.val();
   if (!data || !data[myKey]) return;
 
-  const keys = Object.keys(data);
-  const index = keys.indexOf(myKey);
+  const sorted = Object.entries(data)
+    .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
 
-  let msg = "";
+  const index = sorted.findIndex(i => i[0] === myKey);
+  const tokenNo = index + 1;
 
-  if (index > 5) {
-    msg = "Please wait. Your turn will come.";
-  } else if (index === 5) {
-    msg = "Please wait. Your turn will come.";
-  } else if (index < 5 && index > 1) {
-    msg = "🟡 You are almost there. Please be ready.";
-  } else if (index === 1) {
-    msg = "🟢 You’re next. Please stay nearby.";
-  } else if (index === 0) {
-    msg = "🔵 You are being served now.";
+  token.innerText = "Your Token Number: " + tokenNo;
+
+  if (tokenNo > 5) {
+    status.innerText = "Please wait. Your turn will come.";
+  } else if (tokenNo <= 5 && tokenNo > 2) {
+    status.innerText = "🟡 You are almost there.";
+  } else if (tokenNo === 2) {
+    status.innerText = "🟢 You’re next. Please be ready.";
+  } else if (tokenNo === 1) {
+    status.innerText = "🔵 You are being served now.";
   }
-
-  document.getElementById("status").innerText = msg;
 });
 </script>
 

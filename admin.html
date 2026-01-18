@@ -4,22 +4,21 @@
   <title>QueueLess – Admin</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: Arial;
       background: #020617;
       color: white;
       text-align: center;
-      padding-top: 40px;
+      padding-top: 30px;
     }
     .box {
       background: #1e293b;
       padding: 20px;
-      width: 320px;
+      width: 340px;
       margin: auto;
       border-radius: 12px;
     }
     button {
-      padding: 12px 20px;
-      margin-top: 10px;
+      padding: 10px 18px;
       border: none;
       border-radius: 8px;
       background: #3b82f6;
@@ -27,10 +26,8 @@
       font-size: 16px;
       cursor: pointer;
     }
-    ul {
-      text-align: left;
-      padding-left: 20px;
-    }
+    ul { text-align: left; }
+    img { background: white; padding: 6px; }
   </style>
 </head>
 <body>
@@ -39,10 +36,14 @@
   <h2>Admin Panel</h2>
 
   <p>Scan to join queue</p>
-  <img id="qrCode" width="200">
+  <img id="qr" width="200">
+  <p style="font-size:12px;">
+    If QR fails:<br>
+    <a id="link" target="_blank" style="color:#93c5fd"></a>
+  </p>
 
   <p id="nowServing">No one is being served</p>
-  <ul id="queueList"></ul>
+  <ul id="queue"></ul>
 
   <button onclick="nextPerson()">Next</button>
 </div>
@@ -51,54 +52,53 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-const firebaseConfig = {
+firebase.initializeApp({
   databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app"
-};
-firebase.initializeApp(firebaseConfig);
+});
 
 const queueRef = firebase.database().ref("queue");
 
-/* QR CODE – HARD CODED FOR GITHUB PAGES */
-const USER_PAGE =
-  "https://proman10.github.io/QueueLess/index.html";
+const USER_URL = "https://proman10.github.io/QueueLess/index.html";
 
-document.getElementById("qrCode").src =
-  "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
-  encodeURIComponent(USER_PAGE);
+document.getElementById("qr").src =
+  "https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=" +
+  encodeURIComponent(USER_URL);
 
-/* NEXT PERSON */
+document.getElementById("link").innerText = USER_URL;
+document.getElementById("link").href = USER_URL;
+
 function nextPerson() {
   queueRef.once("value", snap => {
     const data = snap.val();
     if (!data) return;
-    const keys = Object.keys(data);
-    queueRef.child(keys[0]).remove();
+
+    const sorted = Object.entries(data)
+      .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
+
+    queueRef.child(sorted[0][0]).remove();
   });
 }
 
-/* LIVE DISPLAY */
 queueRef.on("value", snap => {
-  const list = document.getElementById("queueList");
+  const list = document.getElementById("queue");
   const now = document.getElementById("nowServing");
   list.innerHTML = "";
 
   const data = snap.val();
   if (!data) {
     now.innerText = "No one is being served";
-    list.innerHTML = "<li>Queue is empty</li>";
+    list.innerHTML = "<li>Queue empty</li>";
     return;
   }
 
-  const keys = Object.keys(data);
-  now.innerText =
-    "Now serving: " + data[keys[0]].displayName;
+  const sorted = Object.values(data)
+    .sort((a,b) => a.joinedAt - b.joinedAt);
 
-  keys.forEach((key, i) => {
+  now.innerText = "Now serving: " + sorted[0].displayName;
+
+  sorted.forEach((p, i) => {
     const li = document.createElement("li");
-    li.innerText =
-      (i === 0 ? "▶ " : "") +
-      data[key].displayName +
-      " (Age " + data[key].age + ")";
+    li.innerText = (i+1) + ". " + p.displayName + " (Age " + p.age + ")";
     list.appendChild(li);
   });
 });

@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>QueueLess – Admin</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -19,6 +20,7 @@
       border-radius: 8px;
       cursor: pointer;
       background: #3b82f6;
+      color: white;
     }
     .box {
       background: #1e293b;
@@ -27,67 +29,94 @@
       width: 320px;
       margin: auto;
     }
+    ul {
+      text-align: left;
+      padding-left: 20px;
+    }
   </style>
 </head>
 <body>
 
-  <div class="box">
-    <h2>Admin Panel 🔧</h2>
-<p>Scan to join queue</p>
-<img id="qrCode" alt="QR Code" />
-    <p id="nowServing">No one is being served</p>
-    <p id="queueList">Queue is empty</p>
+<div class="box">
+  <h2>Admin Panel 🔧</h2>
+  <p>Scan to join queue</p>
 
-    <button onclick="nextPerson()">Next</button>
-  </div>
+  <!-- ✅ FIXED QR CODE -->
+  <img
+    src="https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=https://proman10.github.io/QueueLess/index.html"
+    width="200"
+    alt="QR Code"
+  />
 
-  <script>
-  function getQueue() {
-    return JSON.parse(localStorage.getItem("queue")) || [];
-  }
+  <p id="nowServing">No one is being served</p>
+  <ul id="queueList"></ul>
 
-  function saveQueue(queue) {
-    localStorage.setItem("queue", JSON.stringify(queue));
-  }
+  <!-- ✅ ONLY ONE BUTTON -->
+  <button onclick="nextPerson()">Next</button>
+</div>
 
-  function updateDisplay() {
-    const queue = getQueue();
+<!-- 🔥 Firebase SDKs -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
-    if (queue.length === 0) {
-      document.getElementById("nowServing").innerText =
-        "No one is being served";
-      document.getElementById("queueList").innerText =
-        "Queue is empty";
-    } else {
-      document.getElementById("nowServing").innerText =
-        "Now serving: " + queue[0];
-      document.getElementById("queueList").innerText =
-        "Waiting: " + queue.slice(1).join(", ");
+<script>
+  // 🔥 REPLACE WITH YOUR REAL FIREBASE CONFIG
+  const firebaseConfig = {
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT.firebaseapp.com",
+    databaseURL: "https://YOUR_PROJECT-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "YOUR_PROJECT",
+    storageBucket: "YOUR_PROJECT.appspot.com",
+    messagingSenderId: "XXXX",
+    appId: "XXXX"
+  };
+
+  firebase.initializeApp(firebaseConfig);
+  const db = firebase.database();
+  const queueRef = db.ref("queue");
+
+  function renderQueue(data) {
+    const nowServing = document.getElementById("nowServing");
+    const queueList = document.getElementById("queueList");
+    queueList.innerHTML = "";
+
+    if (!data) {
+      nowServing.innerText = "No one is being served";
+      queueList.innerHTML = "<li>Queue is empty</li>";
+      return;
     }
+
+    const tokens = Object.keys(data);
+
+    tokens.forEach((token, index) => {
+      const person = data[token];
+      const li = document.createElement("li");
+      li.innerText = `Token ${token} - ${person.name} (${person.status})`;
+      queueList.appendChild(li);
+
+      if (index === 0 && person.status !== "serving") {
+        queueRef.child(token).update({ status: "serving" });
+        nowServing.innerText = "Now serving: Token " + token;
+      }
+    });
   }
 
   function nextPerson() {
-    let queue = getQueue();
-    if (queue.length > 0) {
-      queue.shift();
-      saveQueue(queue);
-    }
-    updateDisplay();
+    queueRef.once("value", snapshot => {
+      const data = snapshot.val();
+      if (!data) return;
+
+      const tokens = Object.keys(data);
+      if (tokens.length > 0) {
+        queueRef.child(tokens[0]).remove();
+      }
+    });
   }
 
-  // 🔗 Generate QR for user page
-  function generateQR() {
-    const url = window.location.origin + "/index.html";
-    const qrUrl =
-      "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
-      encodeURIComponent(url);
-
-    document.getElementById("qrCode").src = qrUrl;
-  }
-
-  setInterval(updateDisplay, 1000);
-  updateDisplay();
-  generateQR();
+  // 🔄 LIVE LISTENER
+  queueRef.on("value", snapshot => {
+    renderQueue(snapshot.val());
+  });
 </script>
 
 </body>

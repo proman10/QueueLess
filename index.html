@@ -4,7 +4,7 @@
   <title>QueueLess</title>
   <style>
     body {
-      font-family: Arial;
+      font-family: Arial, sans-serif;
       background: #020617;
       color: white;
       text-align: center;
@@ -57,12 +57,13 @@ const queueRef = firebase.database().ref("queue");
 
 let myKey = null;
 
+/* JOIN QUEUE WITH DUPLICATE CHECK */
 function joinQueue() {
-  const nameRaw = document.getElementById("name").value.trim();
+  const rawName = document.getElementById("name").value.trim();
   const age = document.getElementById("age").value.trim();
-  if (!nameRaw || !age) return;
+  if (!rawName || !age) return;
 
-  const name = nameRaw.toLowerCase();
+  const name = rawName.toLowerCase();
 
   queueRef.once("value", snap => {
     const data = snap.val();
@@ -71,7 +72,7 @@ function joinQueue() {
       for (let key in data) {
         if (
           data[key].name === name &&
-          data[key].age == age
+          data[key].age === age
         ) {
           myKey = key;
           document.getElementById("status").innerText =
@@ -81,21 +82,23 @@ function joinQueue() {
       }
     }
 
-    const newRef = queueRef.push({
-      name,
-      displayName: nameRaw,
-      age,
+    const ref = queueRef.push({
+      name: name,
+      displayName: rawName,
+      age: age,
       joinedAt: Date.now()
     });
 
-    myKey = newRef.key;
+    myKey = ref.key;
     document.getElementById("status").innerText =
       "Joined successfully. Please wait.";
   });
 }
 
+/* WAIT MESSAGE LOGIC */
 queueRef.on("value", snap => {
   if (!myKey) return;
+
   const data = snap.val();
   if (!data || !data[myKey]) return;
 
@@ -103,11 +106,18 @@ queueRef.on("value", snap => {
   const index = keys.indexOf(myKey);
 
   let msg = "";
-  if (index > 5) msg = "Please wait. Your turn will come.";
-  else if (index === 5) msg = "Please wait. Your turn will come.";
-  else if (index < 5 && index > 1) msg = "🟡 You are almost there.";
-  else if (index === 1) msg = "🟢 You’re next. Please stay nearby.";
-  else if (index === 0) msg = "🔵 You are being served now.";
+
+  if (index > 5) {
+    msg = "Please wait. Your turn will come.";
+  } else if (index === 5) {
+    msg = "Please wait. Your turn will come.";
+  } else if (index < 5 && index > 1) {
+    msg = "🟡 You are almost there. Please be ready.";
+  } else if (index === 1) {
+    msg = "🟢 You’re next. Please stay nearby.";
+  } else if (index === 0) {
+    msg = "🔵 You are being served now.";
+  }
 
   document.getElementById("status").innerText = msg;
 });

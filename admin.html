@@ -4,7 +4,7 @@
   <title>QueueLess – Admin</title>
   <style>
     body {
-      font-family: Arial;
+      font-family: Arial, sans-serif;
       background: #020617;
       color: white;
       text-align: center;
@@ -29,6 +29,7 @@
     }
     ul {
       text-align: left;
+      padding-left: 20px;
     }
   </style>
 </head>
@@ -36,6 +37,9 @@
 
 <div class="box">
   <h2>Admin Panel</h2>
+
+  <p>Scan to join queue</p>
+  <img id="qrCode" width="200">
 
   <p id="nowServing">No one is being served</p>
   <ul id="queueList"></ul>
@@ -54,31 +58,40 @@ firebase.initializeApp(firebaseConfig);
 
 const queueRef = firebase.database().ref("queue");
 
+/* QR CODE – HARD CODED FOR GITHUB PAGES */
+const USER_PAGE =
+  "https://proman10.github.io/QueueLess/index.html";
+
+document.getElementById("qrCode").src =
+  "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
+  encodeURIComponent(USER_PAGE);
+
+/* NEXT PERSON */
 function nextPerson() {
   queueRef.once("value", snap => {
     const data = snap.val();
     if (!data) return;
-
     const keys = Object.keys(data);
     queueRef.child(keys[0]).remove();
   });
 }
 
+/* LIVE DISPLAY */
 queueRef.on("value", snap => {
-  const data = snap.val();
   const list = document.getElementById("queueList");
-  const nowServing = document.getElementById("nowServing");
-
+  const now = document.getElementById("nowServing");
   list.innerHTML = "";
 
+  const data = snap.val();
   if (!data) {
-    nowServing.innerText = "No one is being served";
+    now.innerText = "No one is being served";
     list.innerHTML = "<li>Queue is empty</li>";
     return;
   }
 
   const keys = Object.keys(data);
-  nowServing.innerText = "Now serving: " + data[keys[0]].displayName;
+  now.innerText =
+    "Now serving: " + data[keys[0]].displayName;
 
   keys.forEach((key, i) => {
     const li = document.createElement("li");

@@ -1,204 +1,99 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <title>QueueLess – Join Queue</title>
+  <title>QueueLess</title>
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: Arial;
       background: #020617;
       color: white;
       text-align: center;
-      padding-top: 60px;
+      padding-top: 40px;
     }
     .box {
       background: #1e293b;
       padding: 20px;
-      border-radius: 12px;
       width: 320px;
       margin: auto;
+      border-radius: 12px;
     }
-    input, button, select {
+    input, button {
       padding: 10px;
       width: 90%;
-      margin-top: 10px;
-      border-radius: 8px;
+      margin: 6px;
+      border-radius: 6px;
       border: none;
     }
     button {
-      background: #3b82f6;
-      color: white;
+      background: #22c55e;
       font-size: 16px;
       cursor: pointer;
-    }
-    .info {
-      margin-top: 15px;
-      font-size: 14px;
     }
   </style>
 </head>
 <body>
 
 <div class="box">
-  <!-- 🌍 Language Selector -->
-  <select id="languageSelect" onchange="changeLanguage()">
-    <option value="en">English</option>
-    <option value="hi">हिन्दी</option>
-    <option value="te">తెలుగు</option>
-  </select>
+  <h2>Join Queue</h2>
 
-  <h2 id="titleText">Join Queue</h2>
-  <p id="instructionText">Enter your full name and age</p>
+  <input id="name" placeholder="Full Name">
+  <input id="age" type="number" placeholder="Age">
+  <button onclick="joinQueue()">Join</button>
 
-  <input id="nameInput" placeholder="Full Name">
-  <input id="ageInput" type="number" placeholder="Age">
-
-  <button onclick="joinQueue()" id="joinBtn">Join Queue</button>
-
-  <p id="tokenInfo"></p>
-
-  <div class="info">
-    <p id="nowServing">Now serving: —</p>
-    <p id="estimate">Estimated waiting time: —</p>
-  </div>
+  <p id="status"></p>
 </div>
 
-<!-- Firebase -->
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 
 <script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
-    authDomain: "queueless-5a7e6.firebaseapp.com",
-    databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
-    projectId: "queueless-5a7e6",
-    storageBucket: "queueless-5a7e6.firebasestorage.app",
-    messagingSenderId: "403169758788",
-    appId: "1:403169758788:web:f6e02f17480a629df7f611"
-  };
+const firebaseConfig = {
+  databaseURL: "YOUR_DATABASE_URL_HERE"
+};
+firebase.initializeApp(firebaseConfig);
 
-  firebase.initializeApp(firebaseConfig);
-  const queueRef = firebase.database().ref("queue");
+const queueRef = firebase.database().ref("queue");
+const settingsRef = firebase.database().ref("settings");
 
-  let myToken = null;
-
-  // 🌍 Language texts
-  const texts = {
-    en: {
-      title: "Join Queue",
-      instruction: "Enter your full name and age",
-      join: "Join Queue",
-      serving: "Now serving",
-      estimate: "Estimated waiting time",
-      done: "Your turn is done ✔"
-    },
-    hi: {
-      title: "कतार में जुड़ें",
-      instruction: "अपना पूरा नाम और उम्र दर्ज करें",
-      join: "कतार में जुड़ें",
-      serving: "अभी सेवा में",
-      estimate: "अनुमानित प्रतीक्षा समय",
-      done: "आपकी बारी पूरी हो गई ✔"
-    },
-    te: {
-      title: "క్యూలో చేరండి",
-      instruction: "మీ పూర్తి పేరు మరియు వయసు నమోదు చేయండి",
-      join: "క్యూలో చేరండి",
-      serving: "ప్రస్తుతం సేవలో",
-      estimate: "అంచనా వేచి ఉండే సమయం",
-      done: "మీ వంతు పూర్తైంది ✔"
-    }
-  };
-
-  let currentLang = "en";
-
-  function changeLanguage() {
-    const lang = document.getElementById("languageSelect").value;
-    currentLang = lang;
-
-    document.getElementById("titleText").innerText = texts[lang].title;
-    document.getElementById("instructionText").innerText = texts[lang].instruction;
-    document.getElementById("joinBtn").innerText = texts[lang].join;
-
-    document.getElementById("nowServing").innerText =
-      texts[lang].serving + ": —";
-    document.getElementById("estimate").innerText =
-      texts[lang].estimate + ": —";
-  }
-
-  function joinQueue() {
-    const nameRaw = document.getElementById("nameInput").value.trim();
-    const age = document.getElementById("ageInput").value.trim();
-
-    if (!nameRaw || !age) {
-      alert("Enter name and age");
+function joinQueue() {
+  settingsRef.child("queuePaused").once("value", snap => {
+    if (snap.val() === true) {
+      document.getElementById("status").innerText =
+        "Queue is temporarily closed. Please wait.";
       return;
     }
 
-    const normalizedName = nameRaw.toLowerCase();
+    const name = document.getElementById("name").value.trim();
+    const age = document.getElementById("age").value.trim();
+    if (!name || !age) return;
 
-    queueRef.once("value")
-      .then(snapshot => {
-        const data = snapshot.val() || {};
-
-        // 🚫 duplicate check
-        for (let token in data) {
-          if (
-            data[token].name === normalizedName &&
-            String(data[token].age) === String(age)
-          ) {
-            alert("You are already in the queue");
-            return;
-          }
-        }
-
-        const token = Object.keys(data).length + 1;
-
-        return queueRef.child(token).set({
-          name: normalizedName,
-          displayName: nameRaw,
-          age: age,
-          status: "waiting"
-        }).then(() => {
-          myToken = token;
-          document.getElementById("tokenInfo").innerText =
-            "Your token number is: " + token;
-
-          document.getElementById("nameInput").value = "";
-          document.getElementById("ageInput").value = "";
-        });
-      });
-  }
-
-  // 🔄 Live queue updates
-  queueRef.on("value", snapshot => {
-    const data = snapshot.val();
-
-    if (!data) {
-      document.getElementById("nowServing").innerText =
-        texts[currentLang].serving + ": —";
-      document.getElementById("estimate").innerText =
-        texts[currentLang].estimate + ": —";
-      return;
-    }
-
-    const tokens = Object.keys(data);
-    document.getElementById("nowServing").innerText =
-      texts[currentLang].serving + ": Token " + tokens[0];
-
-    if (myToken) {
-      const position = tokens.indexOf(String(myToken));
-      if (position >= 0) {
-        document.getElementById("estimate").innerText =
-          texts[currentLang].estimate + ": " + (position * 5) + " minutes";
-      } else {
-        document.getElementById("estimate").innerText =
-          texts[currentLang].done;
-      }
-    }
+    queueRef.push({
+      name: name.toLowerCase(),
+      age: age,
+      joinedAt: Date.now()
+    });
   });
-</script>
+}
 
+queueRef.on("value", snap => {
+  const data = snap.val();
+  if (!data) return;
+
+  const list = Object.values(data);
+  const name = document.getElementById("name").value.trim().toLowerCase();
+  const age = document.getElementById("age").value.trim();
+
+  const index = list.findIndex(p => p.name === name && p.age === age);
+  if (index === -1) return;
+
+  let msg = "";
+  if (index === 0) msg = "🔵 You are being served now.";
+  else if (index === 1) msg = "🟢 You’re next. Please be ready.";
+  else if (index === 2) msg = "🟡 You’re almost next.";
+  else msg = "Please wait. People ahead: " + index;
+
+  document.getElementById("status").innerText = msg;
+});
+</script>
 </body>
 </html>

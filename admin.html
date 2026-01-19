@@ -65,7 +65,7 @@ const queueRef = firebase.database().ref("queue");
 const USER_URL = "https://proman10.github.io/QueueLess/index.html";
 
 document.getElementById("qr").src =
-  "https://chart.googleapis.com/chart?chs=200x200&cht=qr&chl=" +
+  "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
   encodeURIComponent(USER_URL);
 
 document.getElementById("link").innerText = USER_URL;

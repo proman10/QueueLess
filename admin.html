@@ -13,7 +13,7 @@
     .box {
       background: #1e293b;
       padding: 20px;
-      width: 340px;
+      width: 360px;
       margin: auto;
       border-radius: 12px;
     }
@@ -36,14 +36,11 @@
   <h2>Admin Panel</h2>
 
   <p>Scan to join queue</p>
-  <img id="qr" width="200">
-  <p style="font-size:12px;">
-    If QR fails:<br>
-    <a id="link" target="_blank" style="color:#93c5fd"></a>
-  </p>
+  <img id="qr" width="200"><br><br>
+  <small id="link"></small>
 
   <p id="nowServing">No one is being served</p>
-  <ul id="queue"></ul>
+  <ul id="queueList"></ul>
 
   <button onclick="nextPerson()">Next</button>
 </div>
@@ -52,10 +49,17 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-firebase.initializeApp({
-  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app"
-});
+const firebaseConfig = {
+  apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
+  authDomain: "queueless-5a7e6.firebaseapp.com",
+  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "queueless-5a7e6",
+  storageBucket: "queueless-5a7e6.firebasestorage.app",
+  messagingSenderId: "403169758788",
+  appId: "1:403169758788:web:f6e02f17480a629df7f611"
+};
 
+firebase.initializeApp(firebaseConfig);
 const queueRef = firebase.database().ref("queue");
 
 const USER_URL = "https://proman10.github.io/QueueLess/index.html";
@@ -65,7 +69,6 @@ document.getElementById("qr").src =
   encodeURIComponent(USER_URL);
 
 document.getElementById("link").innerText = USER_URL;
-document.getElementById("link").href = USER_URL;
 
 function nextPerson() {
   queueRef.once("value", snap => {
@@ -80,7 +83,7 @@ function nextPerson() {
 }
 
 queueRef.on("value", snap => {
-  const list = document.getElementById("queue");
+  const list = document.getElementById("queueList");
   const now = document.getElementById("nowServing");
   list.innerHTML = "";
 
@@ -96,7 +99,7 @@ queueRef.on("value", snap => {
 
   now.innerText = "Now serving: " + sorted[0].displayName;
 
-  sorted.forEach((p, i) => {
+  sorted.forEach((p,i) => {
     const li = document.createElement("li");
     li.innerText = (i+1) + ". " + p.displayName + " (Age " + p.age + ")";
     list.appendChild(li);

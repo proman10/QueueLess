@@ -13,7 +13,7 @@
     .box {
       background: #1e293b;
       padding: 20px;
-      width: 340px;
+      width: 360px;
       margin: auto;
       border-radius: 12px;
     }
@@ -31,7 +31,6 @@
     }
     #token {
       font-size: 18px;
-      margin-top: 10px;
       font-weight: bold;
     }
   </style>
@@ -53,13 +52,19 @@
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-firebase.initializeApp({
-  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app"
-});
+const firebaseConfig = {
+  apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
+  authDomain: "queueless-5a7e6.firebaseapp.com",
+  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId: "queueless-5a7e6",
+  storageBucket: "queueless-5a7e6.firebasestorage.app",
+  messagingSenderId: "403169758788",
+  appId: "1:403169758788:web:f6e02f17480a629df7f611"
+};
 
+firebase.initializeApp(firebaseConfig);
 const queueRef = firebase.database().ref("queue");
 
-// 🔒 Persist key
 let myKey = localStorage.getItem("queueKey");
 
 function joinQueue() {
@@ -71,7 +76,6 @@ function joinQueue() {
 
   queueRef.once("value", snap => {
     const data = snap.val();
-
     if (data) {
       for (let k in data) {
         if (data[k].name === cleanName && data[k].age === ageVal) {
@@ -94,7 +98,6 @@ function joinQueue() {
   });
 }
 
-// 🔁 Live updates
 queueRef.on("value", snap => {
   if (!myKey) return;
 
@@ -112,16 +115,16 @@ queueRef.on("value", snap => {
   const index = sorted.findIndex(e => e[0] === myKey);
   const tokenNo = index + 1;
 
-  token.innerText = "🎟️ Your Token Number: " + tokenNo;
+  token.innerText = "Your Token Number: " + tokenNo;
 
   if (tokenNo > 5) {
     status.innerText = "Please wait. Your turn will come.";
-  } else if (tokenNo <= 5 && tokenNo > 2) {
-    status.innerText = "🟡 You are almost there.";
+  } else if (tokenNo > 2) {
+    status.innerText = "You are almost there.";
   } else if (tokenNo === 2) {
-    status.innerText = "🟢 You’re next. Please be ready.";
-  } else if (tokenNo === 1) {
-    status.innerText = "🔵 You are being served now.";
+    status.innerText = "You’re next. Please be ready.";
+  } else {
+    status.innerText = "You are being served now.";
   }
 });
 </script>

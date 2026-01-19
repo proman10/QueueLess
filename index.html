@@ -1,51 +1,16 @@
-<!DOCTYPE html>
-<html>
-<head>
-  <title>QueueLess</title>
-  <style>
-    body {
-      font-family: Arial;
-      background: #020617;
-      color: white;
-      text-align: center;
-      padding-top: 40px;
-    }
-    .box {
-      background: #1e293b;
-      padding: 20px;
-      width: 360px;
-      margin: auto;
-      border-radius: 12px;
-    }
-    input, button {
-      padding: 10px;
-      width: 90%;
-      margin: 6px;
-      border-radius: 6px;
-      border: none;
-    }
-    button {
-      background: #3b82f6;
-      color: white;
-      font-size: 16px;
-    }
-    #token {
-      font-size: 18px;
-      font-weight: bold;
-    }
-  </style>
-</head>
 <body>
 
 <div class="box">
-  <h2>Join Queue</h2>
+  <h2>Admin Panel</h2>
 
-  <input id="name" placeholder="Full Name">
-  <input id="age" type="number" placeholder="Age">
-  <button id="joinBtn">Join Queue</button>
+  <p>Scan to join queue</p>
+  <img id="qr" width="200"><br><br>
+  <small id="link"></small>
 
-  <p id="token"></p>
-  <p id="status"></p>
+  <p id="nowServing">No one is being served</p>
+  <ul id="queueList"></ul>
+
+  <button onclick="nextPerson()">Next</button>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -65,80 +30,49 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const queueRef = firebase.database().ref("queue");
 
-const nameInput = document.getElementById("name");
-const ageInput = document.getElementById("age");
-const joinBtn = document.getElementById("joinBtn");
-const tokenEl = document.getElementById("token");
-const statusEl = document.getElementById("status");
+const USER_URL = "https://proman10.github.io/QueueLess/index.html";
 
-let myKey = localStorage.getItem("queueKey");
+document.getElementById("qr").src =
+  "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
+  encodeURIComponent(USER_URL);
 
-joinBtn.addEventListener("click", joinQueue);
+document.getElementById("link").innerText = USER_URL;
 
-function joinQueue() {
-  const rawName = nameInput.value.trim();
-  const ageVal = ageInput.value.trim();
-  if (!rawName || !ageVal) {
-    statusEl.innerText = "Please enter name and age.";
-    return;
-  }
-
-  const cleanName = rawName.toLowerCase();
-
+function nextPerson() {
   queueRef.once("value", snap => {
     const data = snap.val();
-    if (data) {
-      for (let k in data) {
-        if (data[k].name === cleanName && data[k].age === ageVal) {
-          myKey = k;
-          localStorage.setItem("queueKey", myKey);
-          return;
-        }
-      }
-    }
+    if (!data) return;
 
-    const ref = queueRef.push({
-      name: cleanName,
-      displayName: rawName,
-      age: ageVal,
-      joinedAt: Date.now()
-    });
+    const sorted = Object.entries(data)
+      .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
 
-    myKey = ref.key;
-    localStorage.setItem("queueKey", myKey);
+    queueRef.child(sorted[0][0]).remove();
   });
 }
 
 queueRef.on("value", snap => {
-  if (!myKey) return;
+  const list = document.getElementById("queueList");
+  const now = document.getElementById("nowServing");
+  list.innerHTML = "";
 
   const data = snap.val();
-  if (!data || !data[myKey]) {
-    tokenEl.innerText = "";
-    statusEl.innerText = "You have been served.";
-    localStorage.removeItem("queueKey");
+  if (!data) {
+    now.innerText = "No one is being served";
+    list.innerHTML = "<li>Queue empty</li>";
     return;
   }
 
-  const sorted = Object.entries(data)
-    .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
+  const sorted = Object.values(data)
+    .sort((a,b) => a.joinedAt - b.joinedAt);
 
-  const index = sorted.findIndex(e => e[0] === myKey);
-  const tokenNo = index + 1;
+  now.innerText = "Now serving: " + sorted[0].displayName;
 
-  tokenEl.innerText = "Your Token Number: " + tokenNo;
-
-  if (tokenNo > 5) {
-    statusEl.innerText = "Please wait. Your turn will come.";
-  } else if (tokenNo > 2) {
-    statusEl.innerText = "You are almost there.";
-  } else if (tokenNo === 2) {
-    statusEl.innerText = "You’re next. Please be ready.";
-  } else {
-    statusEl.innerText = "You are being served now.";
-  }
+  sorted.forEach((p,i) => {
+    const li = document.createElement("li");
+    li.innerText = (i+1) + ". " + p.displayName + " (Age " + p.age + ")";
+    list.appendChild(li);
+  });
 });
 </script>
 
 </body>
-</html>

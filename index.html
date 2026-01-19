@@ -42,7 +42,7 @@
 
   <input id="name" placeholder="Full Name">
   <input id="age" type="number" placeholder="Age">
-  <button onclick="joinQueue()">Join Queue</button>
+  <button id="joinBtn">Join Queue</button>
 
   <p id="token"></p>
   <p id="status"></p>
@@ -65,12 +65,23 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const queueRef = firebase.database().ref("queue");
 
+const nameInput = document.getElementById("name");
+const ageInput = document.getElementById("age");
+const joinBtn = document.getElementById("joinBtn");
+const tokenEl = document.getElementById("token");
+const statusEl = document.getElementById("status");
+
 let myKey = localStorage.getItem("queueKey");
 
+joinBtn.addEventListener("click", joinQueue);
+
 function joinQueue() {
-  const rawName = name.value.trim();
-  const ageVal = age.value.trim();
-  if (!rawName || !ageVal) return;
+  const rawName = nameInput.value.trim();
+  const ageVal = ageInput.value.trim();
+  if (!rawName || !ageVal) {
+    statusEl.innerText = "Please enter name and age.";
+    return;
+  }
 
   const cleanName = rawName.toLowerCase();
 
@@ -103,8 +114,8 @@ queueRef.on("value", snap => {
 
   const data = snap.val();
   if (!data || !data[myKey]) {
-    token.innerText = "";
-    status.innerText = "You have been served.";
+    tokenEl.innerText = "";
+    statusEl.innerText = "You have been served.";
     localStorage.removeItem("queueKey");
     return;
   }
@@ -115,16 +126,16 @@ queueRef.on("value", snap => {
   const index = sorted.findIndex(e => e[0] === myKey);
   const tokenNo = index + 1;
 
-  token.innerText = "Your Token Number: " + tokenNo;
+  tokenEl.innerText = "Your Token Number: " + tokenNo;
 
   if (tokenNo > 5) {
-    status.innerText = "Please wait. Your turn will come.";
+    statusEl.innerText = "Please wait. Your turn will come.";
   } else if (tokenNo > 2) {
-    status.innerText = "You are almost there.";
+    statusEl.innerText = "You are almost there.";
   } else if (tokenNo === 2) {
-    status.innerText = "You’re next. Please be ready.";
+    statusEl.innerText = "You’re next. Please be ready.";
   } else {
-    status.innerText = "You are being served now.";
+    statusEl.innerText = "You are being served now.";
   }
 });
 </script>

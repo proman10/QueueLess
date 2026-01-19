@@ -1,18 +1,88 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>QueueLess</title>
+
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(180deg, #0f172a, #020617);
+      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #e5e7eb;
+    }
+
+    .box {
+      background: #0b1220;
+      width: 100%;
+      max-width: 420px;
+      padding: 26px;
+      border-radius: 18px;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.45);
+      text-align: center;
+    }
+
+    h2 {
+      margin-top: 0;
+      color: #e0f2fe;
+    }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      margin-top: 12px;
+      border-radius: 10px;
+      border: 1px solid #1e293b;
+      background: #020617;
+      color: white;
+      font-size: 15px;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 18px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #3b82f6, #2563eb);
+      color: white;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #token {
+      margin-top: 20px;
+      font-size: 18px;
+      font-weight: 700;
+      color: #93c5fd;
+    }
+
+    #status {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+  </style>
+</head>
+
 <body>
 
 <div class="box">
-  <h2>Admin Panel</h2>
+  <h2>Join Queue</h2>
 
-  <p>Scan to join queue</p>
-  <img id="qr" width="200"><br><br>
-  <small id="link"></small>
+  <input id="name" placeholder="Full Name">
+  <input id="age" type="number" placeholder="Age">
+  <button id="joinBtn">Join Queue</button>
 
-  <p id="nowServing">No one is being served</p>
-  <ul id="queueList"></ul>
-
-  <button onclick="nextPerson()">Next</button>
+  <p id="token"></p>
+  <p id="status"></p>
 </div>
 
+<!-- 🔥 YOUR SCRIPT – UNTOUCHED -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -30,49 +100,80 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const queueRef = firebase.database().ref("queue");
 
-const USER_URL = "https://proman10.github.io/QueueLess/index.html";
+const nameInput = document.getElementById("name");
+const ageInput = document.getElementById("age");
+const joinBtn = document.getElementById("joinBtn");
+const tokenEl = document.getElementById("token");
+const statusEl = document.getElementById("status");
 
-document.getElementById("qr").src =
-  "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
-  encodeURIComponent(USER_URL);
+let myKey = localStorage.getItem("queueKey");
 
-document.getElementById("link").innerText = USER_URL;
+joinBtn.addEventListener("click", joinQueue);
 
-function nextPerson() {
+function joinQueue() {
+  const rawName = nameInput.value.trim();
+  const ageVal = ageInput.value.trim();
+  if (!rawName || !ageVal) {
+    statusEl.innerText = "Please enter name and age.";
+    return;
+  }
+
+  const cleanName = rawName.toLowerCase();
+
   queueRef.once("value", snap => {
     const data = snap.val();
-    if (!data) return;
+    if (data) {
+      for (let k in data) {
+        if (data[k].name === cleanName && data[k].age === ageVal) {
+          myKey = k;
+          localStorage.setItem("queueKey", myKey);
+          return;
+        }
+      }
+    }
 
-    const sorted = Object.entries(data)
-      .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
+    const ref = queueRef.push({
+      name: cleanName,
+      displayName: rawName,
+      age: ageVal,
+      joinedAt: Date.now()
+    });
 
-    queueRef.child(sorted[0][0]).remove();
+    myKey = ref.key;
+    localStorage.setItem("queueKey", myKey);
   });
 }
 
 queueRef.on("value", snap => {
-  const list = document.getElementById("queueList");
-  const now = document.getElementById("nowServing");
-  list.innerHTML = "";
+  if (!myKey) return;
 
   const data = snap.val();
-  if (!data) {
-    now.innerText = "No one is being served";
-    list.innerHTML = "<li>Queue empty</li>";
+  if (!data || !data[myKey]) {
+    tokenEl.innerText = "";
+    statusEl.innerText = "You have been served.";
+    localStorage.removeItem("queueKey");
     return;
   }
 
-  const sorted = Object.values(data)
-    .sort((a,b) => a.joinedAt - b.joinedAt);
+  const sorted = Object.entries(data)
+    .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
 
-  now.innerText = "Now serving: " + sorted[0].displayName;
+  const index = sorted.findIndex(e => e[0] === myKey);
+  const tokenNo = index + 1;
 
-  sorted.forEach((p,i) => {
-    const li = document.createElement("li");
-    li.innerText = (i+1) + ". " + p.displayName + " (Age " + p.age + ")";
-    list.appendChild(li);
-  });
+  tokenEl.innerText = "Your Token Number: " + tokenNo;
+
+  if (tokenNo > 5) {
+    statusEl.innerText = "Please wait. Your turn will come.";
+  } else if (tokenNo > 2) {
+    statusEl.innerText = "You are almost there.";
+  } else if (tokenNo === 2) {
+    statusEl.innerText = "You’re next. Please be ready.";
+  } else {
+    statusEl.innerText = "You are being served now.";
+  }
 });
 </script>
 
 </body>
+</html>

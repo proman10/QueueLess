@@ -19,7 +19,7 @@ body {
   background: #1e293b;
   padding: 20px;
   border-radius: 12px;
-  width: 360px;
+  width: 380px;
   text-align: center;
 }
 
@@ -31,6 +31,11 @@ ul {
 li {
   padding: 6px;
   border-bottom: 1px solid #334155;
+}
+
+.flag {
+  color: #facc15;
+  font-weight: bold;
 }
 
 button {
@@ -80,21 +85,16 @@ firebase.initializeApp(firebaseConfig);
 const queueRef = firebase.database().ref("queue");
 
 const USER_URL = "https://proman10.github.io/QueueLess/index.html";
-
 document.getElementById("qr").src =
   "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
   encodeURIComponent(USER_URL);
-
 document.getElementById("link").innerText = USER_URL;
 
 function nextPerson() {
   queueRef.once("value", snap => {
     const data = snap.val();
     if (!data) return;
-
-    const sorted = Object.entries(data)
-      .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
-
+    const sorted = Object.entries(data).sort((a,b)=>a[1].joinedAt-b[1].joinedAt);
     queueRef.child(sorted[0][0]).remove();
   });
 }
@@ -111,14 +111,16 @@ queueRef.on("value", snap => {
     return;
   }
 
-  const sorted = Object.values(data)
-    .sort((a,b) => a.joinedAt - b.joinedAt);
-
+  const sorted = Object.values(data).sort((a,b)=>a.joinedAt-b.joinedAt);
   now.innerText = "Now serving: " + sorted[0].displayName;
 
   sorted.forEach((p,i) => {
     const li = document.createElement("li");
-    li.innerText = (i+1) + ". " + p.displayName + " (Age " + p.age + ")";
+    const letters = p.displayName.replace(/\s/g,"");
+    const suspicious = letters.length < 4;
+    li.innerHTML =
+      (i+1) + ". " + p.displayName + " (Age " + p.age + ")" +
+      (suspicious ? ' <span class="flag">⚠️</span>' : '');
     list.appendChild(li);
   });
 });

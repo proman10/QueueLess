@@ -1,78 +1,71 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <title>QueueLess</title>
+<meta charset="UTF-8">
+<title>Join Queue</title>
 
-  <style>
-    body {
-      margin: 0;
-      min-height: 100vh;
-      background: linear-gradient(180deg, #0f172a, #020617);
-      font-family: system-ui, -apple-system, Segoe UI, sans-serif;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: #e5e7eb;
-    }
+<style>
+body {
+  font-family: Arial, sans-serif;
+  background: #020617;
+  color: white;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
 
-    .box {
-      background: #0b1220;
-      width: 100%;
-      max-width: 420px;
-      padding: 26px;
-      border-radius: 18px;
-      box-shadow: 0 25px 50px rgba(0,0,0,0.45);
-      text-align: center;
-    }
+.box {
+  background: #1e293b;
+  padding: 20px;
+  border-radius: 12px;
+  width: 330px;
+  text-align: center;
+}
 
-    h2 {
-      margin-top: 0;
-      color: #e0f2fe;
-    }
+input, select {
+  width: 100%;
+  padding: 10px;
+  margin-top: 10px;
+  border-radius: 6px;
+  border: none;
+}
 
-    input {
-      width: 100%;
-      padding: 14px;
-      margin-top: 12px;
-      border-radius: 10px;
-      border: 1px solid #1e293b;
-      background: #020617;
-      color: white;
-      font-size: 15px;
-    }
+button {
+  width: 100%;
+  padding: 12px;
+  margin-top: 15px;
+  border: none;
+  border-radius: 8px;
+  background: #3b82f6;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
 
-    button {
-      width: 100%;
-      padding: 14px;
-      margin-top: 18px;
-      border-radius: 12px;
-      border: none;
-      background: linear-gradient(135deg, #3b82f6, #2563eb);
-      color: white;
-      font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-    }
+#token {
+  margin-top: 15px;
+  font-size: 18px;
+  font-weight: bold;
+  color: #93c5fd;
+}
 
-    #token {
-      margin-top: 20px;
-      font-size: 18px;
-      font-weight: 700;
-      color: #93c5fd;
-    }
-
-    #status {
-      margin-top: 8px;
-      font-size: 14px;
-      color: #e5e7eb;
-    }
-  </style>
+#status {
+  margin-top: 8px;
+}
+</style>
 </head>
 
 <body>
 
 <div class="box">
-  <h2>Join Queue</h2>
+  <h2 id="title">Join Queue</h2>
+
+  <select id="lang">
+    <option value="en">English</option>
+    <option value="hi">हिंदी</option>
+    <option value="te">తెలుగు</option>
+  </select>
 
   <input id="name" placeholder="Full Name">
   <input id="age" type="number" placeholder="Age">
@@ -82,7 +75,6 @@
   <p id="status"></p>
 </div>
 
-<!-- 🔥 YOUR SCRIPT – UNTOUCHED -->
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
@@ -105,16 +97,69 @@ const ageInput = document.getElementById("age");
 const joinBtn = document.getElementById("joinBtn");
 const tokenEl = document.getElementById("token");
 const statusEl = document.getElementById("status");
+const langSel = document.getElementById("lang");
 
 let myKey = localStorage.getItem("queueKey");
+
+const TEXT = {
+  en: {
+    enter: "Please enter name and age.",
+    name: "Enter a real name (letters only).",
+    age: "Age must be between 1 and 100.",
+    wait: "Please wait. Your turn will come.",
+    almost: "You are almost there.",
+    next: "You’re next. Please be ready.",
+    now: "You are being served now.",
+    done: "You have been served."
+  },
+  hi: {
+    enter: "नाम और उम्र दर्ज करें।",
+    name: "कृपया सही नाम दर्ज करें।",
+    age: "उम्र 1 से 100 के बीच होनी चाहिए।",
+    wait: "कृपया प्रतीक्षा करें।",
+    almost: "आपकी बारी आने वाली है।",
+    next: "आप अगले हैं।",
+    now: "आपकी सेवा हो रही है।",
+    done: "आपकी सेवा हो चुकी है।"
+  },
+  te: {
+    enter: "పేరు మరియు వయసు నమోదు చేయండి.",
+    name: "దయచేసి సరైన పేరు నమోదు చేయండి.",
+    age: "వయసు 1 నుండి 100 మధ్య ఉండాలి.",
+    wait: "దయచేసి వేచి ఉండండి.",
+    almost: "మీ వంతు దగ్గరలో ఉంది.",
+    next: "మీరు తదుపరి.",
+    now: "మీ సేవ జరుగుతోంది.",
+    done: "మీ సేవ పూర్తైంది."
+  }
+};
 
 joinBtn.addEventListener("click", joinQueue);
 
 function joinQueue() {
   const rawName = nameInput.value.trim();
-  const ageVal = ageInput.value.trim();
+  const ageVal = parseInt(ageInput.value.trim());
+  const lang = langSel.value;
+
   if (!rawName || !ageVal) {
-    statusEl.innerText = "Please enter name and age.";
+    statusEl.innerText = TEXT[lang].enter;
+    return;
+  }
+
+  if (ageVal < 1 || ageVal > 100) {
+    statusEl.innerText = TEXT[lang].age;
+    return;
+  }
+
+  const nameRegex = /^[A-Za-z\s]+$/;
+  if (!nameRegex.test(rawName)) {
+    statusEl.innerText = TEXT[lang].name;
+    return;
+  }
+
+  const lettersOnly = rawName.replace(/\s/g, "");
+  if (lettersOnly.length < 3 || /^(.)\1+$/.test(lettersOnly)) {
+    statusEl.innerText = TEXT[lang].name;
     return;
   }
 
@@ -124,7 +169,7 @@ function joinQueue() {
     const data = snap.val();
     if (data) {
       for (let k in data) {
-        if (data[k].name === cleanName && data[k].age === ageVal) {
+        if (data[k].name === cleanName && data[k].age == ageVal) {
           myKey = k;
           localStorage.setItem("queueKey", myKey);
           return;
@@ -146,32 +191,26 @@ function joinQueue() {
 
 queueRef.on("value", snap => {
   if (!myKey) return;
-
+  const lang = langSel.value;
   const data = snap.val();
+
   if (!data || !data[myKey]) {
     tokenEl.innerText = "";
-    statusEl.innerText = "You have been served.";
+    statusEl.innerText = TEXT[lang].done;
     localStorage.removeItem("queueKey");
     return;
   }
 
-  const sorted = Object.entries(data)
-    .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
+  const sorted = Object.entries(data).sort((a,b)=>a[1].joinedAt-b[1].joinedAt);
+  const tokenNo = sorted.findIndex(e=>e[0]===myKey)+1;
 
-  const index = sorted.findIndex(e => e[0] === myKey);
-  const tokenNo = index + 1;
+  tokenEl.innerText = "Token: " + tokenNo;
 
-  tokenEl.innerText = "Your Token Number: " + tokenNo;
-
-  if (tokenNo > 5) {
-    statusEl.innerText = "Please wait. Your turn will come.";
-  } else if (tokenNo > 2) {
-    statusEl.innerText = "You are almost there.";
-  } else if (tokenNo === 2) {
-    statusEl.innerText = "You’re next. Please be ready.";
-  } else {
-    statusEl.innerText = "You are being served now.";
-  }
+  statusEl.innerText =
+    tokenNo > 5 ? TEXT[lang].wait :
+    tokenNo > 2 ? TEXT[lang].almost :
+    tokenNo === 2 ? TEXT[lang].next :
+    TEXT[lang].now;
 });
 </script>
 

@@ -19,11 +19,11 @@ body {
   background: #1e293b;
   padding: 20px;
   border-radius: 12px;
-  width: 330px;
+  width: 340px;
   text-align: center;
 }
 
-input {
+input, select {
   width: 100%;
   padding: 10px;
   margin-top: 10px;
@@ -59,7 +59,13 @@ button {
 <body>
 
 <div class="box">
-  <h2>Join Queue</h2>
+  <h2 id="title">Join Queue</h2>
+
+  <select id="lang">
+    <option value="en">English</option>
+    <option value="hi">हिंदी</option>
+    <option value="te">తెలుగు</option>
+  </select>
 
   <input id="name" placeholder="Full Name">
   <input id="age" type="number" placeholder="Age">
@@ -91,51 +97,83 @@ const ageInput = document.getElementById("age");
 const joinBtn = document.getElementById("joinBtn");
 const tokenEl = document.getElementById("token");
 const statusEl = document.getElementById("status");
+const langSel = document.getElementById("lang");
 
 let myKey = localStorage.getItem("queueKey");
+
+const TEXT = {
+  en: {
+    enter: "Please enter name and age.",
+    name: "Name must contain only letters.",
+    age: "Age must be between 1 and 100.",
+    wait: "Please wait. Your turn will come.",
+    almost: "You are almost there.",
+    next: "You’re next. Please be ready.",
+    now: "You are being served now.",
+    done: "You have been served."
+  },
+  hi: {
+    enter: "नाम और उम्र दर्ज करें।",
+    name: "कृपया सही नाम दर्ज करें।",
+    age: "उम्र 1 से 100 के बीच होनी चाहिए।",
+    wait: "कृपया प्रतीक्षा करें।",
+    almost: "आपकी बारी आने वाली है।",
+    next: "आप अगले हैं।",
+    now: "आपकी सेवा हो रही है।",
+    done: "आपकी सेवा हो चुकी है।"
+  },
+  te: {
+    enter: "పేరు మరియు వయసు నమోదు చేయండి.",
+    name: "దయచేసి సరైన పేరు నమోదు చేయండి.",
+    age: "వయసు 1 నుండి 100 మధ్య ఉండాలి.",
+    wait: "దయచేసి వేచి ఉండండి.",
+    almost: "మీ వంతు దగ్గరలో ఉంది.",
+    next: "మీరు తదుపరి.",
+    now: "మీ సేవ జరుగుతోంది.",
+    done: "మీ సేవ పూర్తైంది."
+  }
+};
 
 joinBtn.addEventListener("click", joinQueue);
 
 function joinQueue() {
   const rawName = nameInput.value.trim();
   const ageVal = parseInt(ageInput.value.trim());
+  const lang = langSel.value;
 
   if (!rawName || !ageVal) {
-    statusEl.innerText = "Please enter name and age.";
+    statusEl.innerText = TEXT[lang].enter;
     return;
   }
 
   if (ageVal < 1 || ageVal > 100) {
-    statusEl.innerText = "Age must be between 1 and 100.";
+    statusEl.innerText = TEXT[lang].age;
     return;
   }
 
-  const nameRegex = /^[A-Za-z\s]+$/;
-  if (!nameRegex.test(rawName)) {
-    statusEl.innerText = "Name must contain only letters.";
-    return;
-  }
-
-  const lettersOnly = rawName.replace(/\s/g, "");
-  if (lettersOnly.length < 3 || /^(.)\1+$/.test(lettersOnly)) {
-    statusEl.innerText = "Please enter a real name.";
+  if (!/^[A-Za-z\s]+$/.test(rawName)) {
+    statusEl.innerText = TEXT[lang].name;
     return;
   }
 
   const cleanName = rawName.toLowerCase();
 
   queueRef.once("value", snap => {
-    const data = snap.val();
-    if (data) {
-      for (let k in data) {
-        if (data[k].name === cleanName && data[k].age == ageVal) {
-          myKey = k;
-          localStorage.setItem("queueKey", myKey);
-          return;
-        }
+    const data = snap.val() || {};
+    const entries = Object.entries(data)
+      .sort((a,b)=>a[1].joinedAt-b[1].joinedAt);
+
+    // check duplicate
+    for (let [k,v] of entries) {
+      if (v.name === cleanName && v.age == ageVal) {
+        myKey = k;
+        localStorage.setItem("queueKey", myKey);
+        updateUI(entries);
+        return;
       }
     }
 
+    // add new
     const ref = queueRef.push({
       name: cleanName,
       displayName: rawName,
@@ -146,38 +184,32 @@ function joinQueue() {
     myKey = ref.key;
     localStorage.setItem("queueKey", myKey);
 
-    // ✅ FIX: force immediate refresh so first user sees token
-    queueRef.once("value", () => {});
+    entries.push([myKey, { joinedAt: Date.now() }]);
+    updateUI(entries);
   });
 }
 
-queueRef.on("value", snap => {
-  if (!myKey) return;
-
-  const data = snap.val();
-  if (!data || !data[myKey]) {
-    tokenEl.innerText = "";
-    statusEl.innerText = "You have been served.";
-    localStorage.removeItem("queueKey");
-    return;
-  }
-
-  const sorted = Object.entries(data)
-    .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
-
-  const index = sorted.findIndex(e => e[0] === myKey);
+function updateUI(entries) {
+  const lang = langSel.value;
+  const index = entries.findIndex(e => e[0] === myKey);
   const tokenNo = index + 1;
 
   tokenEl.innerText = "Token: " + tokenNo;
 
-  if (tokenNo > 5) {
-    statusEl.innerText = "Please wait. Your turn will come.";
-  } else if (tokenNo > 2) {
-    statusEl.innerText = "You are almost there.";
-  } else if (tokenNo === 2) {
-    statusEl.innerText = "You’re next. Please be ready.";
-  } else {
-    statusEl.innerText = "You are being served now.";
+  statusEl.innerText =
+    tokenNo > 5 ? TEXT[lang].wait :
+    tokenNo > 2 ? TEXT[lang].almost :
+    tokenNo === 2 ? TEXT[lang].next :
+    TEXT[lang].now;
+}
+
+queueRef.on("value", snap => {
+  if (!myKey) return;
+  const data = snap.val();
+  if (!data || !data[myKey]) {
+    tokenEl.innerText = "";
+    statusEl.innerText = TEXT[langSel.value].done;
+    localStorage.removeItem("queueKey");
   }
 });
 </script>

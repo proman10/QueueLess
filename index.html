@@ -56,6 +56,7 @@ button{
 .leave{
   background:#1e293b;
   color:#fca5a5;
+  display:none;
 }
 
 small{
@@ -67,7 +68,7 @@ small{
 <body>
 
 <div class="box">
-  <h2 id="title">Join Queue</h2>
+  <h2>Join Queue</h2>
 
   <select id="lang">
     <option value="en">English</option>
@@ -77,8 +78,9 @@ small{
 
   <input id="name" placeholder="Full Name">
   <input id="age" type="number" placeholder="Age">
+
   <button class="join" id="joinBtn">Join Queue</button>
-  <button class="leave" onclick="leaveQueue()">Leave Queue</button>
+  <button class="leave" id="leaveBtn">Leave Queue</button>
 
   <p id="token"></p>
   <p id="status"></p>
@@ -102,71 +104,88 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const queueRef = db.ref("queue");
-const doctorRef = db.ref("currentDoctor");
+const metaRef = db.ref("meta");
+
+const joinBtn = document.getElementById("joinBtn");
+const leaveBtn = document.getElementById("leaveBtn");
+const tokenEl = document.getElementById("token");
+const statusEl = document.getElementById("status");
+const doctorEl = document.getElementById("doctor");
 
 let myKey = localStorage.getItem("queueKey");
 
-const texts={
-  en:{title:"Join Queue"},
-  hi:{title:"कतार में शामिल हों"},
-  te:{title:"క్యూలో చేరండి"}
-};
-
-document.getElementById("lang").onchange=()=>{
-  const l=document.getElementById("lang").value;
-  document.getElementById("title").innerText=texts[l].title;
-};
-
-document.getElementById("joinBtn").onclick=()=>{
-  const name=document.getElementById("name").value.trim();
-  const age=document.getElementById("age").value.trim();
-  if(!name||!age) return;
+// JOIN QUEUE
+joinBtn.onclick = () => {
+  const name = document.getElementById("name").value.trim();
+  const age = document.getElementById("age").value.trim();
+  if (!name || !age) {
+    statusEl.innerText = "Please enter name and age.";
+    return;
+  }
 
   queueRef.push({
-    name:name.toLowerCase(),
-    displayName:name,
-    age:age,
-    joinedAt:Date.now()
-  }).then(ref=>{
-    myKey=ref.key;
-    localStorage.setItem("queueKey",myKey);
+    displayName: name,
+    age: age,
+    joinedAt: Date.now()
+  }).then(ref => {
+    myKey = ref.key;
+    localStorage.setItem("queueKey", myKey);
   });
 };
 
-function leaveQueue(){
-  if(myKey){
-    queueRef.child(myKey).remove();
-    localStorage.removeItem("queueKey");
-    myKey=null;
-  }
-}
+// LEAVE QUEUE (FIXED)
+leaveBtn.onclick = () => {
+  if (!myKey) return;
 
-queueRef.on("value",snap=>{
-  if(!myKey) return;
-  const data=snap.val();
-  if(!data||!data[myKey]){
-    document.getElementById("status").innerText="You have been served.";
-    document.getElementById("token").innerText="";
+  queueRef.child(myKey).once("value", snap => {
+    if (!snap.exists()) return;
+
+    queueRef.child(myKey).remove().then(() => {
+      localStorage.removeItem("queueKey");
+      myKey = null;
+
+      tokenEl.innerText = "";
+      statusEl.innerText = "You have left the queue.";
+      leaveBtn.style.display = "none";
+    });
+  });
+};
+
+// QUEUE LISTENER
+queueRef.on("value", snap => {
+  if (!myKey) return;
+
+  const data = snap.val();
+  if (!data || !data[myKey]) {
+    tokenEl.innerText = "";
+    statusEl.innerText = "You have been served.";
+    leaveBtn.style.display = "none";
+    localStorage.removeItem("queueKey");
+    myKey = null;
     return;
   }
-  const sorted=Object.entries(data)
-    .sort((a,b)=>a[1].joinedAt - b[1].joinedAt);
-  const index=sorted.findIndex(e=>e[0]===myKey);
-  const token=index+1;
 
-  document.getElementById("token").innerText="Token: "+token;
-  document.getElementById("status").innerText=
-    token>5?"Please wait":
-    token>2?"You are almost there":
-    token===2?"You’re next":
-    "You are being served now";
+  const sorted = Object.entries(data)
+    .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
+
+  const index = sorted.findIndex(e => e[0] === myKey);
+  const token = index + 1;
+
+  tokenEl.innerText = "Token: " + token;
+  leaveBtn.style.display = "block";
+
+  statusEl.innerText =
+    token > 5 ? "Please wait." :
+    token > 2 ? "You are almost there." :
+    token === 2 ? "You’re next." :
+    "You are being served now.";
 });
 
-doctorRef.on("value",snap=>{
-  const d=snap.val();
-  document.getElementById("doctor").innerText =
-    d ? "Doctor: "+d : "";
+// DOCTOR NAME LISTENER
+metaRef.child("doctorName").on("value", snap => {
+  doctorEl.innerText = snap.exists() ? "Doctor: " + snap.val() : "";
 });
 </script>
+
 </body>
 </html>

@@ -93,7 +93,7 @@ li{
 <div class="panel">
   <h2>Admin Panel</h2>
 
-  <input id="doctorInput" placeholder="Doctor Name (e.g. Dr. Sharma)">
+  <input id="doctorInput" placeholder="Doctor Name">
   <button onclick="saveDoctor()">Save Doctor</button>
 
   <div class="qr">
@@ -124,7 +124,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const db = firebase.database();
 const queueRef = db.ref("queue");
-const doctorRef = db.ref("currentDoctor");
+const metaRef = db.ref("meta");
 
 const USER_URL = "https://proman10.github.io/QueueLess/index.html";
 document.getElementById("qr").src =
@@ -133,41 +133,44 @@ document.getElementById("qr").src =
 
 function saveDoctor(){
   const name = document.getElementById("doctorInput").value.trim();
-  doctorRef.set(name);
+  if (name) metaRef.child("doctorName").set(name);
 }
 
 function nextPerson(){
-  queueRef.once("value", snap=>{
+  queueRef.once("value", snap => {
     const data = snap.val();
-    if(!data) return;
+    if (!data) return;
+
     const sorted = Object.entries(data)
       .sort((a,b)=>a[1].joinedAt - b[1].joinedAt);
+
     queueRef.child(sorted[0][0]).remove();
   });
 }
 
-queueRef.on("value", snap=>{
+queueRef.on("value", snap => {
   const now = document.getElementById("nowServing");
   const list = document.getElementById("queueList");
-  list.innerHTML="";
+  list.innerHTML = "";
 
   const data = snap.val();
-  if(!data){
-    now.innerText="No one is being served";
+  if (!data) {
+    now.innerText = "No one is being served";
     return;
   }
 
   const sorted = Object.values(data)
     .sort((a,b)=>a.joinedAt - b.joinedAt);
 
-  now.innerText="Now serving: "+sorted[0].displayName;
+  now.innerText = "Now serving: " + sorted[0].displayName;
 
   sorted.forEach((p,i)=>{
-    const li=document.createElement("li");
-    li.innerText=(i+1)+". "+p.displayName+" (Age "+p.age+")";
+    const li = document.createElement("li");
+    li.innerText = (i+1)+". "+p.displayName+" (Age "+p.age+")";
     list.appendChild(li);
   });
 });
 </script>
+
 </body>
 </html>

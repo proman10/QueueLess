@@ -2,56 +2,64 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Join Queue</title>
+<title>QueueLess</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
 <style>
-body {
-  font-family: Arial, sans-serif;
-  background: #020617;
-  color: white;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  height: 100vh;
+body{
+  margin:0;
+  font-family:Inter,sans-serif;
+  background:#020617;
+  color:#e5e7eb;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
 }
 
-.box {
-  background: #1e293b;
-  padding: 20px;
-  border-radius: 12px;
-  width: 340px;
-  text-align: center;
+.box{
+  width:360px;
+  background:#0b1220;
+  padding:24px;
+  border-radius:18px;
+  box-shadow:0 25px 60px rgba(0,0,0,.45);
+  text-align:center;
 }
 
-input, select {
-  width: 100%;
-  padding: 10px;
-  margin-top: 10px;
-  border-radius: 6px;
-  border: none;
+input,select{
+  width:100%;
+  padding:12px;
+  margin:8px 0;
+  border-radius:12px;
+  border:1px solid #1e293b;
+  background:#020617;
+  color:white;
 }
 
-button {
-  width: 100%;
-  padding: 12px;
-  margin-top: 15px;
-  border: none;
-  border-radius: 8px;
-  background: #3b82f6;
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
+button{
+  width:100%;
+  padding:14px;
+  border:none;
+  border-radius:14px;
+  font-size:16px;
+  font-weight:600;
+  margin-top:10px;
+  cursor:pointer;
 }
 
-#token {
-  margin-top: 15px;
-  font-size: 18px;
-  font-weight: bold;
-  color: #93c5fd;
+.join{
+  background:linear-gradient(135deg,#3b82f6,#2563eb);
+  color:white;
 }
 
-#status {
-  margin-top: 8px;
+.leave{
+  background:#1e293b;
+  color:#fca5a5;
+}
+
+small{
+  color:#94a3b8;
 }
 </style>
 </head>
@@ -69,10 +77,12 @@ button {
 
   <input id="name" placeholder="Full Name">
   <input id="age" type="number" placeholder="Age">
-  <button id="joinBtn">Join Queue</button>
+  <button class="join" id="joinBtn">Join Queue</button>
+  <button class="leave" onclick="leaveQueue()">Leave Queue</button>
 
   <p id="token"></p>
   <p id="status"></p>
+  <small id="doctor"></small>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -90,129 +100,73 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
-const queueRef = firebase.database().ref("queue");
-
-const nameInput = document.getElementById("name");
-const ageInput = document.getElementById("age");
-const joinBtn = document.getElementById("joinBtn");
-const tokenEl = document.getElementById("token");
-const statusEl = document.getElementById("status");
-const langSel = document.getElementById("lang");
+const db = firebase.database();
+const queueRef = db.ref("queue");
+const doctorRef = db.ref("currentDoctor");
 
 let myKey = localStorage.getItem("queueKey");
 
-const TEXT = {
-  en: {
-    enter: "Please enter name and age.",
-    name: "Name must contain only letters.",
-    age: "Age must be between 1 and 100.",
-    wait: "Please wait. Your turn will come.",
-    almost: "You are almost there.",
-    next: "You’re next. Please be ready.",
-    now: "You are being served now.",
-    done: "You have been served."
-  },
-  hi: {
-    enter: "नाम और उम्र दर्ज करें।",
-    name: "कृपया सही नाम दर्ज करें।",
-    age: "उम्र 1 से 100 के बीच होनी चाहिए।",
-    wait: "कृपया प्रतीक्षा करें।",
-    almost: "आपकी बारी आने वाली है।",
-    next: "आप अगले हैं।",
-    now: "आपकी सेवा हो रही है।",
-    done: "आपकी सेवा हो चुकी है।"
-  },
-  te: {
-    enter: "పేరు మరియు వయసు నమోదు చేయండి.",
-    name: "దయచేసి సరైన పేరు నమోదు చేయండి.",
-    age: "వయసు 1 నుండి 100 మధ్య ఉండాలి.",
-    wait: "దయచేసి వేచి ఉండండి.",
-    almost: "మీ వంతు దగ్గరలో ఉంది.",
-    next: "మీరు తదుపరి.",
-    now: "మీ సేవ జరుగుతోంది.",
-    done: "మీ సేవ పూర్తైంది."
-  }
+const texts={
+  en:{title:"Join Queue"},
+  hi:{title:"कतार में शामिल हों"},
+  te:{title:"క్యూలో చేరండి"}
 };
 
-joinBtn.addEventListener("click", joinQueue);
+document.getElementById("lang").onchange=()=>{
+  const l=document.getElementById("lang").value;
+  document.getElementById("title").innerText=texts[l].title;
+};
 
-function joinQueue() {
-  const rawName = nameInput.value.trim();
-  const ageVal = parseInt(ageInput.value.trim());
-  const lang = langSel.value;
+document.getElementById("joinBtn").onclick=()=>{
+  const name=document.getElementById("name").value.trim();
+  const age=document.getElementById("age").value.trim();
+  if(!name||!age) return;
 
-  if (!rawName || !ageVal) {
-    statusEl.innerText = TEXT[lang].enter;
-    return;
-  }
-
-  if (ageVal < 1 || ageVal > 100) {
-    statusEl.innerText = TEXT[lang].age;
-    return;
-  }
-
-  if (!/^[A-Za-z\s]+$/.test(rawName)) {
-    statusEl.innerText = TEXT[lang].name;
-    return;
-  }
-
-  const cleanName = rawName.toLowerCase();
-
-  queueRef.once("value", snap => {
-    const data = snap.val() || {};
-    const entries = Object.entries(data)
-      .sort((a,b)=>a[1].joinedAt-b[1].joinedAt);
-
-    // check duplicate
-    for (let [k,v] of entries) {
-      if (v.name === cleanName && v.age == ageVal) {
-        myKey = k;
-        localStorage.setItem("queueKey", myKey);
-        updateUI(entries);
-        return;
-      }
-    }
-
-    // add new
-    const ref = queueRef.push({
-      name: cleanName,
-      displayName: rawName,
-      age: ageVal,
-      joinedAt: Date.now()
-    });
-
-    myKey = ref.key;
-    localStorage.setItem("queueKey", myKey);
-
-    entries.push([myKey, { joinedAt: Date.now() }]);
-    updateUI(entries);
+  queueRef.push({
+    name:name.toLowerCase(),
+    displayName:name,
+    age:age,
+    joinedAt:Date.now()
+  }).then(ref=>{
+    myKey=ref.key;
+    localStorage.setItem("queueKey",myKey);
   });
-}
+};
 
-function updateUI(entries) {
-  const lang = langSel.value;
-  const index = entries.findIndex(e => e[0] === myKey);
-  const tokenNo = index + 1;
-
-  tokenEl.innerText = "Token: " + tokenNo;
-
-  statusEl.innerText =
-    tokenNo > 5 ? TEXT[lang].wait :
-    tokenNo > 2 ? TEXT[lang].almost :
-    tokenNo === 2 ? TEXT[lang].next :
-    TEXT[lang].now;
-}
-
-queueRef.on("value", snap => {
-  if (!myKey) return;
-  const data = snap.val();
-  if (!data || !data[myKey]) {
-    tokenEl.innerText = "";
-    statusEl.innerText = TEXT[langSel.value].done;
+function leaveQueue(){
+  if(myKey){
+    queueRef.child(myKey).remove();
     localStorage.removeItem("queueKey");
+    myKey=null;
   }
+}
+
+queueRef.on("value",snap=>{
+  if(!myKey) return;
+  const data=snap.val();
+  if(!data||!data[myKey]){
+    document.getElementById("status").innerText="You have been served.";
+    document.getElementById("token").innerText="";
+    return;
+  }
+  const sorted=Object.entries(data)
+    .sort((a,b)=>a[1].joinedAt - b[1].joinedAt);
+  const index=sorted.findIndex(e=>e[0]===myKey);
+  const token=index+1;
+
+  document.getElementById("token").innerText="Token: "+token;
+  document.getElementById("status").innerText=
+    token>5?"Please wait":
+    token>2?"You are almost there":
+    token===2?"You’re next":
+    "You are being served now";
+});
+
+doctorRef.on("value",snap=>{
+  const d=snap.val();
+  document.getElementById("doctor").innerText =
+    d ? "Doctor: "+d : "";
 });
 </script>
-
 </body>
 </html>

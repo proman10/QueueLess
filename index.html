@@ -1,90 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>QueueLess</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
-<style>
-body{
-  margin:0;
-  font-family:Inter,sans-serif;
-  background:#020617;
-  color:#e5e7eb;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  min-height:100vh;
-}
-
-.box{
-  width:360px;
-  background:#0b1220;
-  padding:24px;
-  border-radius:18px;
-  box-shadow:0 25px 60px rgba(0,0,0,.45);
-  text-align:center;
-}
-
-input,select{
-  width:100%;
-  padding:12px;
-  margin:8px 0;
-  border-radius:12px;
-  border:1px solid #1e293b;
-  background:#020617;
-  color:white;
-}
-
-button{
-  width:100%;
-  padding:14px;
-  border:none;
-  border-radius:14px;
-  font-size:16px;
-  font-weight:600;
-  margin-top:10px;
-  cursor:pointer;
-}
-
-.join{
-  background:linear-gradient(135deg,#3b82f6,#2563eb);
-  color:white;
-}
-
-.leave{
-  background:#1e293b;
-  color:#fca5a5;
-  display:none;
-}
-
-small{
-  color:#94a3b8;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>Join Queue</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+    .box {
+      background: #1e293b;
+      padding: 25px;
+      border-radius: 12px;
+      width: 320px;
+      text-align: center;
+    }
+    input, button {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: none;
+      font-size: 15px;
+    }
+    button {
+      background: #3b82f6;
+      color: white;
+      cursor: pointer;
+    }
+    button.leave {
+      background: #ef4444;
+    }
+    p {
+      margin-top: 10px;
+    }
+  </style>
 </head>
-
 <body>
 
 <div class="box">
   <h2>Join Queue</h2>
 
-  <select id="lang">
-    <option value="en">English</option>
-    <option value="hi">हिंदी</option>
-    <option value="te">తెలుగు</option>
-  </select>
-
   <input id="name" placeholder="Full Name">
-  <input id="age" type="number" placeholder="Age">
-
-  <button class="join" id="joinBtn">Join Queue</button>
-  <button class="leave" id="leaveBtn">Leave Queue</button>
+  <input id="age" type="number" placeholder="Age (max 100)">
+  <button id="joinBtn">Join Queue</button>
 
   <p id="token"></p>
   <p id="status"></p>
-  <small id="doctor"></small>
+  <p id="doctor"></p>
+
+  <button class="leave" id="leaveBtn" style="display:none;">Leave Queue</button>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -102,24 +72,28 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const db = firebase.database();
 const queueRef = db.ref("queue");
-const metaRef = db.ref("meta");
+const doctorRef = db.ref("currentDoctor");
 
+const nameInput = document.getElementById("name");
+const ageInput = document.getElementById("age");
 const joinBtn = document.getElementById("joinBtn");
 const leaveBtn = document.getElementById("leaveBtn");
 const tokenEl = document.getElementById("token");
 const statusEl = document.getElementById("status");
 const doctorEl = document.getElementById("doctor");
 
-let myKey = localStorage.getItem("queueKey");
+let myKey = null;
 
-// JOIN QUEUE
+// Join Queue
 joinBtn.onclick = () => {
-  const name = document.getElementById("name").value.trim();
-  const age = document.getElementById("age").value.trim();
-  if (!name || !age) {
-    statusEl.innerText = "Please enter name and age.";
+  const name = nameInput.value.trim();
+  const age = ageInput.value.trim();
+
+  if (!name || !age || age > 100) {
+    statusEl.innerText = "Enter valid name and age.";
     return;
   }
 
@@ -129,39 +103,32 @@ joinBtn.onclick = () => {
     joinedAt: Date.now()
   }).then(ref => {
     myKey = ref.key;
-    localStorage.setItem("queueKey", myKey);
+    leaveBtn.style.display = "block";
   });
 };
 
-// LEAVE QUEUE (FIXED)
+// Leave Queue
 leaveBtn.onclick = () => {
   if (!myKey) return;
 
-  queueRef.child(myKey).once("value", snap => {
-    if (!snap.exists()) return;
-
-    queueRef.child(myKey).remove().then(() => {
-      localStorage.removeItem("queueKey");
-      myKey = null;
-
-      tokenEl.innerText = "";
-      statusEl.innerText = "You have left the queue.";
-      leaveBtn.style.display = "none";
-    });
+  queueRef.child(myKey).remove().then(() => {
+    myKey = null;
+    tokenEl.innerText = "";
+    statusEl.innerText = "You have left the queue.";
+    leaveBtn.style.display = "none";
   });
 };
 
-// QUEUE LISTENER
+// Live Queue Updates
 queueRef.on("value", snap => {
   if (!myKey) return;
 
   const data = snap.val();
   if (!data || !data[myKey]) {
+    myKey = null;
     tokenEl.innerText = "";
     statusEl.innerText = "You have been served.";
     leaveBtn.style.display = "none";
-    localStorage.removeItem("queueKey");
-    myKey = null;
     return;
   }
 
@@ -169,21 +136,21 @@ queueRef.on("value", snap => {
     .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
 
   const index = sorted.findIndex(e => e[0] === myKey);
-  const token = index + 1;
+  const tokenNo = index + 1;
 
-  tokenEl.innerText = "Token: " + token;
-  leaveBtn.style.display = "block";
+  tokenEl.innerText = "Token Number: " + tokenNo;
 
-  statusEl.innerText =
-    token > 5 ? "Please wait." :
-    token > 2 ? "You are almost there." :
-    token === 2 ? "You’re next." :
-    "You are being served now.";
+  if (tokenNo > 5) statusEl.innerText = "Please wait.";
+  else if (tokenNo > 2) statusEl.innerText = "You are almost there.";
+  else if (tokenNo === 2) statusEl.innerText = "You are next.";
+  else statusEl.innerText = "You are being served now.";
 });
 
-// DOCTOR NAME LISTENER
-metaRef.child("doctorName").on("value", snap => {
-  doctorEl.innerText = snap.exists() ? "Doctor: " + snap.val() : "";
+// Doctor Name
+doctorRef.on("value", snap => {
+  if (snap.exists()) {
+    doctorEl.innerText = "Doctor: " + snap.val();
+  }
 });
 </script>
 

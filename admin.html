@@ -1,110 +1,56 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>QueueLess – Admin</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-
-<style>
-body{
-  margin:0;
-  font-family:Inter,sans-serif;
-  background:#020617;
-  color:#e5e7eb;
-  display:flex;
-  justify-content:center;
-  align-items:center;
-  min-height:100vh;
-}
-
-.panel{
-  width:420px;
-  background:#0b1220;
-  padding:24px;
-  border-radius:18px;
-  box-shadow:0 25px 60px rgba(0,0,0,.45);
-}
-
-h2{
-  margin:0 0 16px;
-  text-align:center;
-  color:#e0f2fe;
-}
-
-input{
-  width:100%;
-  padding:12px;
-  border-radius:12px;
-  border:1px solid #1e293b;
-  background:#020617;
-  color:white;
-  margin-bottom:10px;
-}
-
-button{
-  width:100%;
-  padding:14px;
-  border:none;
-  border-radius:14px;
-  font-size:16px;
-  font-weight:600;
-  cursor:pointer;
-  background:linear-gradient(135deg,#22c55e,#16a34a);
-  color:white;
-}
-
-.qr{
-  text-align:center;
-  margin:20px 0;
-}
-
-.qr img{
-  background:white;
-  padding:8px;
-  border-radius:12px;
-}
-
-.now{
-  background:#020617;
-  padding:14px;
-  border-radius:12px;
-  margin-bottom:12px;
-  text-align:center;
-  color:#93c5fd;
-  font-weight:600;
-}
-
-ul{
-  list-style:none;
-  padding:0;
-  margin:0;
-}
-
-li{
-  padding:8px;
-  border-bottom:1px solid #1e293b;
-}
-</style>
+  <meta charset="UTF-8">
+  <title>Admin Panel</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #020617;
+      color: white;
+      text-align: center;
+      padding-top: 40px;
+    }
+    .box {
+      background: #1e293b;
+      padding: 25px;
+      border-radius: 12px;
+      width: 360px;
+      margin: auto;
+    }
+    input, button {
+      padding: 10px;
+      width: 100%;
+      margin-top: 10px;
+      border-radius: 6px;
+      border: none;
+    }
+    button {
+      background: #22c55e;
+      color: white;
+      cursor: pointer;
+    }
+    ul {
+      text-align: left;
+    }
+  </style>
 </head>
-
 <body>
 
-<div class="panel">
+<div class="box">
   <h2>Admin Panel</h2>
 
+  <p>Scan to join queue</p>
+  <img id="qr" width="200"><br>
+  <small id="link"></small>
+
   <input id="doctorInput" placeholder="Doctor Name">
-  <button onclick="saveDoctor()">Save Doctor</button>
+  <button onclick="setDoctor()">Set Doctor</button>
 
-  <div class="qr">
-    <p>Scan to join queue</p>
-    <img id="qr" width="180">
-  </div>
-
-  <div class="now" id="nowServing">No one is being served</div>
+  <p id="nowServing">No one</p>
   <ul id="queueList"></ul>
 
-  <button onclick="nextPerson()">Next Patient</button>
+  <button onclick="nextPerson()">Next</button>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
@@ -122,51 +68,56 @@ const firebaseConfig = {
 };
 
 firebase.initializeApp(firebaseConfig);
+
 const db = firebase.database();
 const queueRef = db.ref("queue");
-const metaRef = db.ref("meta");
+const doctorRef = db.ref("currentDoctor");
 
 const USER_URL = "https://proman10.github.io/QueueLess/index.html";
+
 document.getElementById("qr").src =
   "https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=" +
   encodeURIComponent(USER_URL);
 
-function saveDoctor(){
+document.getElementById("link").innerText = USER_URL;
+
+function setDoctor() {
   const name = document.getElementById("doctorInput").value.trim();
-  if (name) metaRef.child("doctorName").set(name);
+  if (name) doctorRef.set(name);
 }
 
-function nextPerson(){
+function nextPerson() {
   queueRef.once("value", snap => {
     const data = snap.val();
     if (!data) return;
 
     const sorted = Object.entries(data)
-      .sort((a,b)=>a[1].joinedAt - b[1].joinedAt);
+      .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
 
     queueRef.child(sorted[0][0]).remove();
   });
 }
 
 queueRef.on("value", snap => {
-  const now = document.getElementById("nowServing");
   const list = document.getElementById("queueList");
+  const now = document.getElementById("nowServing");
   list.innerHTML = "";
 
   const data = snap.val();
   if (!data) {
     now.innerText = "No one is being served";
+    list.innerHTML = "<li>Queue empty</li>";
     return;
   }
 
   const sorted = Object.values(data)
-    .sort((a,b)=>a.joinedAt - b.joinedAt);
+    .sort((a,b) => a.joinedAt - b.joinedAt);
 
   now.innerText = "Now serving: " + sorted[0].displayName;
 
-  sorted.forEach((p,i)=>{
+  sorted.forEach((p,i) => {
     const li = document.createElement("li");
-    li.innerText = (i+1)+". "+p.displayName+" (Age "+p.age+")";
+    li.innerText = (i+1) + ". " + p.displayName + " (Age " + p.age + ")";
     list.appendChild(li);
   });
 });

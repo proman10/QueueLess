@@ -10,14 +10,13 @@
 body{
   margin:0;
   font-family:Poppins,sans-serif;
-  background:linear-gradient(180deg,#020617,#020617);
+  background:#020617;
   color:#e5e7eb;
   display:flex;
   justify-content:center;
   align-items:center;
   min-height:100vh;
 }
-
 .card{
   width:360px;
   background:#0b1220;
@@ -26,9 +25,7 @@ body{
   box-shadow:0 20px 50px rgba(0,0,0,.5);
   text-align:center;
 }
-
 h2{margin:0 0 12px;color:#e0f2fe}
-
 select,input,button{
   width:100%;
   padding:12px;
@@ -37,32 +34,17 @@ select,input,button{
   border:1px solid #1e293b;
   background:#020617;
   color:white;
-  font-size:15px;
 }
-
-button{
-  border:none;
-  font-weight:600;
-  cursor:pointer;
-}
-
+button{border:none;font-weight:600;cursor:pointer}
 .join{background:#2563eb}
 .leave{background:#1e293b;color:#fca5a5}
-
-#token{
-  font-size:20px;
-  font-weight:700;
-  color:#93c5fd;
-  margin-top:12px;
-}
-
+#token{font-size:20px;font-weight:700;color:#93c5fd;margin-top:12px}
 #status{margin-top:6px}
 small{color:#94a3b8}
 </style>
 </head>
 
 <body>
-
 <div class="card">
   <h2 id="title">Join Queue</h2>
 
@@ -87,41 +69,38 @@ small{color:#94a3b8}
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-const firebaseConfig={
+firebase.initializeApp({
   apiKey:"AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
   authDomain:"queueless-5a7e6.firebaseapp.com",
   databaseURL:"https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId:"queueless-5a7e6",
-  appId:"1:403169758788:web:f6e02f17480a629df7f611"
-};
-firebase.initializeApp(firebaseConfig);
+  projectId:"queueless-5a7e6"
+});
 
-const db=firebase.database();
-const queueRef=db.ref("queue");
-const doctorRef=db.ref("currentDoctor");
+const db = firebase.database();
+const queueRef = db.ref("queue");
+const doctorRef = db.ref("currentDoctor");
 
-let myKey=localStorage.getItem("queueKey");
+let myKey = localStorage.getItem("queueKey");
 
 const TEXT={
- en:{title:"Join Queue",invalid:"Enter valid name (letters only)",age:"Age 1–100",dup:"You are already in the queue"},
- hi:{title:"कतार में शामिल हों",invalid:"सही नाम दर्ज करें",age:"उम्र 1–100"},
- te:{title:"క్యూలో చేరండి",invalid:"సరైన పేరు నమోదు చేయండి",age:"వయసు 1–100"}
+  en:{title:"Join Queue",invalid:"Enter valid name (letters only)",age:"Age must be 1–100",dup:"You are already in the queue"},
+  hi:{title:"कतार में शामिल हों",invalid:"सही नाम दर्ज करें",age:"उम्र 1–100"},
+  te:{title:"క్యూలో చేరండి",invalid:"సరైన పేరు నమోదు చేయండి",age:"వయసు 1–100"}
 };
 
-const langSel=document.getElementById("lang");
-langSel.onchange=()=>document.getElementById("title").innerText=TEXT[langSel.value].title;
-langSel.onchange();
+const lang=document.getElementById("lang");
+lang.onchange=()=>title.innerText=TEXT[lang.value].title;
+lang.onchange();
 
-document.getElementById("joinBtn").onclick=()=>{
-  const raw=document.getElementById("name").value.trim();
-  const age=parseInt(document.getElementById("age").value);
-  const lang=langSel.value;
+joinBtn.onclick=()=>{
+  const raw=name.value.trim();
+  const ageVal=parseInt(age.value);
 
   if(!/^[A-Za-z ]{3,}$/.test(raw)){
-    status.innerText=TEXT[lang].invalid;return;
+    status.innerText=TEXT[lang.value].invalid;return;
   }
-  if(age<1||age>100){
-    status.innerText=TEXT[lang].age;return;
+  if(ageVal<1||ageVal>100){
+    status.innerText=TEXT[lang.value].age;return;
   }
 
   const clean=raw.toLowerCase();
@@ -129,10 +108,12 @@ document.getElementById("joinBtn").onclick=()=>{
   queueRef.once("value",snap=>{
     const data=snap.val()||{};
     for(let k in data){
-      if(data[k].name===clean && data[k].age==age){
+      if(data[k].name===clean && data[k].age==ageVal){
         myKey=k;
         localStorage.setItem("queueKey",myKey);
-        status.innerText=TEXT[lang].dup;
+        leaveBtn.style.display="block";
+        updateUI(data);
+        status.innerText=TEXT[lang.value].dup;
         return;
       }
     }
@@ -140,17 +121,20 @@ document.getElementById("joinBtn").onclick=()=>{
     queueRef.push({
       name:clean,
       displayName:raw,
-      age:age,
+      age:ageVal,
       joinedAt:Date.now()
     }).then(ref=>{
       myKey=ref.key;
       localStorage.setItem("queueKey",myKey);
-      document.getElementById("leaveBtn").style.display="block";
+      leaveBtn.style.display="block";
+
+      // 🔥 TOKEN BUG FIX: force immediate UI refresh
+      queueRef.once("value",snap=>updateUI(snap.val()));
     });
   });
 };
 
-document.getElementById("leaveBtn").onclick=()=>{
+leaveBtn.onclick=()=>{
   if(myKey){
     queueRef.child(myKey).remove();
     localStorage.removeItem("queueKey");
@@ -158,33 +142,25 @@ document.getElementById("leaveBtn").onclick=()=>{
   }
 };
 
-queueRef.on("value",snap=>{
-  if(!myKey)return;
-  const data=snap.val();
-  if(!data||!data[myKey]){
-    token.innerText="";
-    status.innerText="You have been served.";
-    localStorage.removeItem("queueKey");
-    return;
-  }
+function updateUI(data){
+  if(!myKey||!data||!data[myKey])return;
 
   const sorted=Object.entries(data).sort((a,b)=>a[1].joinedAt-b[1].joinedAt);
   const pos=sorted.findIndex(e=>e[0]===myKey)+1;
 
   token.innerText="Token "+pos;
-  leaveBtn.style.display="block";
-
   status.innerText=
     pos>5?"Please wait":
     pos>2?"You are almost there":
     pos===2?"You’re next":
     "You are being served now";
-});
+}
+
+queueRef.on("value",snap=>updateUI(snap.val()));
 
 doctorRef.on("value",snap=>{
   doctor.innerText=snap.val()?("Doctor: "+snap.val()):"";
 });
 </script>
-
 </body>
 </html>

@@ -1,156 +1,188 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Join Queue</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: white;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      height: 100vh;
-    }
-    .box {
-      background: #1e293b;
-      padding: 25px;
-      border-radius: 12px;
-      width: 320px;
-      text-align: center;
-    }
-    input, button {
-      width: 100%;
-      padding: 10px;
-      margin-top: 10px;
-      border-radius: 6px;
-      border: none;
-      font-size: 15px;
-    }
-    button {
-      background: #3b82f6;
-      color: white;
-      cursor: pointer;
-    }
-    button.leave {
-      background: #ef4444;
-    }
-    p {
-      margin-top: 10px;
-    }
-  </style>
+<meta charset="UTF-8">
+<title>QueueLess</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+
+<style>
+body{
+  margin:0;
+  font-family:Poppins,sans-serif;
+  background:linear-gradient(180deg,#020617,#020617);
+  color:#e5e7eb;
+  display:flex;
+  justify-content:center;
+  align-items:center;
+  min-height:100vh;
+}
+
+.card{
+  width:360px;
+  background:#0b1220;
+  padding:24px;
+  border-radius:18px;
+  box-shadow:0 20px 50px rgba(0,0,0,.5);
+  text-align:center;
+}
+
+h2{margin:0 0 12px;color:#e0f2fe}
+
+select,input,button{
+  width:100%;
+  padding:12px;
+  margin:8px 0;
+  border-radius:12px;
+  border:1px solid #1e293b;
+  background:#020617;
+  color:white;
+  font-size:15px;
+}
+
+button{
+  border:none;
+  font-weight:600;
+  cursor:pointer;
+}
+
+.join{background:#2563eb}
+.leave{background:#1e293b;color:#fca5a5}
+
+#token{
+  font-size:20px;
+  font-weight:700;
+  color:#93c5fd;
+  margin-top:12px;
+}
+
+#status{margin-top:6px}
+small{color:#94a3b8}
+</style>
 </head>
+
 <body>
 
-<div class="box">
-  <h2>Join Queue</h2>
+<div class="card">
+  <h2 id="title">Join Queue</h2>
+
+  <select id="lang">
+    <option value="en">English</option>
+    <option value="hi">हिंदी</option>
+    <option value="te">తెలుగు</option>
+  </select>
 
   <input id="name" placeholder="Full Name">
-  <input id="age" type="number" placeholder="Age (max 100)">
-  <button id="joinBtn">Join Queue</button>
+  <input id="age" type="number" placeholder="Age">
 
-  <p id="token"></p>
-  <p id="status"></p>
-  <p id="doctor"></p>
+  <button class="join" id="joinBtn">Join Queue</button>
+  <button class="leave" id="leaveBtn" style="display:none">Leave Queue</button>
 
-  <button class="leave" id="leaveBtn" style="display:none;">Leave Queue</button>
+  <div id="token"></div>
+  <div id="status"></div>
+  <small id="doctor"></small>
 </div>
 
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 
 <script>
-const firebaseConfig = {
-  apiKey: "AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
-  authDomain: "queueless-5a7e6.firebaseapp.com",
-  databaseURL: "https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
-  projectId: "queueless-5a7e6",
-  storageBucket: "queueless-5a7e6.firebasestorage.app",
-  messagingSenderId: "403169758788",
-  appId: "1:403169758788:web:f6e02f17480a629df7f611"
+const firebaseConfig={
+  apiKey:"AIzaSyB8qFdxKNjEE1LjaDYcRcGa6OlB_vc_ePo",
+  authDomain:"queueless-5a7e6.firebaseapp.com",
+  databaseURL:"https://queueless-5a7e6-default-rtdb.asia-southeast1.firebasedatabase.app",
+  projectId:"queueless-5a7e6",
+  appId:"1:403169758788:web:f6e02f17480a629df7f611"
 };
-
 firebase.initializeApp(firebaseConfig);
 
-const db = firebase.database();
-const queueRef = db.ref("queue");
-const doctorRef = db.ref("currentDoctor");
+const db=firebase.database();
+const queueRef=db.ref("queue");
+const doctorRef=db.ref("currentDoctor");
 
-const nameInput = document.getElementById("name");
-const ageInput = document.getElementById("age");
-const joinBtn = document.getElementById("joinBtn");
-const leaveBtn = document.getElementById("leaveBtn");
-const tokenEl = document.getElementById("token");
-const statusEl = document.getElementById("status");
-const doctorEl = document.getElementById("doctor");
+let myKey=localStorage.getItem("queueKey");
 
-let myKey = null;
+const TEXT={
+ en:{title:"Join Queue",invalid:"Enter valid name (letters only)",age:"Age 1–100",dup:"You are already in the queue"},
+ hi:{title:"कतार में शामिल हों",invalid:"सही नाम दर्ज करें",age:"उम्र 1–100"},
+ te:{title:"క్యూలో చేరండి",invalid:"సరైన పేరు నమోదు చేయండి",age:"వయసు 1–100"}
+};
 
-// Join Queue
-joinBtn.onclick = () => {
-  const name = nameInput.value.trim();
-  const age = ageInput.value.trim();
+const langSel=document.getElementById("lang");
+langSel.onchange=()=>document.getElementById("title").innerText=TEXT[langSel.value].title;
+langSel.onchange();
 
-  if (!name || !age || age > 100) {
-    statusEl.innerText = "Enter valid name and age.";
-    return;
+document.getElementById("joinBtn").onclick=()=>{
+  const raw=document.getElementById("name").value.trim();
+  const age=parseInt(document.getElementById("age").value);
+  const lang=langSel.value;
+
+  if(!/^[A-Za-z ]{3,}$/.test(raw)){
+    status.innerText=TEXT[lang].invalid;return;
+  }
+  if(age<1||age>100){
+    status.innerText=TEXT[lang].age;return;
   }
 
-  queueRef.push({
-    displayName: name,
-    age: age,
-    joinedAt: Date.now()
-  }).then(ref => {
-    myKey = ref.key;
-    leaveBtn.style.display = "block";
+  const clean=raw.toLowerCase();
+
+  queueRef.once("value",snap=>{
+    const data=snap.val()||{};
+    for(let k in data){
+      if(data[k].name===clean && data[k].age==age){
+        myKey=k;
+        localStorage.setItem("queueKey",myKey);
+        status.innerText=TEXT[lang].dup;
+        return;
+      }
+    }
+
+    queueRef.push({
+      name:clean,
+      displayName:raw,
+      age:age,
+      joinedAt:Date.now()
+    }).then(ref=>{
+      myKey=ref.key;
+      localStorage.setItem("queueKey",myKey);
+      document.getElementById("leaveBtn").style.display="block";
+    });
   });
 };
 
-// Leave Queue
-leaveBtn.onclick = () => {
-  if (!myKey) return;
-
-  queueRef.child(myKey).remove().then(() => {
-    myKey = null;
-    tokenEl.innerText = "";
-    statusEl.innerText = "You have left the queue.";
-    leaveBtn.style.display = "none";
-  });
+document.getElementById("leaveBtn").onclick=()=>{
+  if(myKey){
+    queueRef.child(myKey).remove();
+    localStorage.removeItem("queueKey");
+    location.reload();
+  }
 };
 
-// Live Queue Updates
-queueRef.on("value", snap => {
-  if (!myKey) return;
-
-  const data = snap.val();
-  if (!data || !data[myKey]) {
-    myKey = null;
-    tokenEl.innerText = "";
-    statusEl.innerText = "You have been served.";
-    leaveBtn.style.display = "none";
+queueRef.on("value",snap=>{
+  if(!myKey)return;
+  const data=snap.val();
+  if(!data||!data[myKey]){
+    token.innerText="";
+    status.innerText="You have been served.";
+    localStorage.removeItem("queueKey");
     return;
   }
 
-  const sorted = Object.entries(data)
-    .sort((a,b) => a[1].joinedAt - b[1].joinedAt);
+  const sorted=Object.entries(data).sort((a,b)=>a[1].joinedAt-b[1].joinedAt);
+  const pos=sorted.findIndex(e=>e[0]===myKey)+1;
 
-  const index = sorted.findIndex(e => e[0] === myKey);
-  const tokenNo = index + 1;
+  token.innerText="Token "+pos;
+  leaveBtn.style.display="block";
 
-  tokenEl.innerText = "Token Number: " + tokenNo;
-
-  if (tokenNo > 5) statusEl.innerText = "Please wait.";
-  else if (tokenNo > 2) statusEl.innerText = "You are almost there.";
-  else if (tokenNo === 2) statusEl.innerText = "You are next.";
-  else statusEl.innerText = "You are being served now.";
+  status.innerText=
+    pos>5?"Please wait":
+    pos>2?"You are almost there":
+    pos===2?"You’re next":
+    "You are being served now";
 });
 
-// Doctor Name
-doctorRef.on("value", snap => {
-  if (snap.exists()) {
-    doctorEl.innerText = "Doctor: " + snap.val();
-  }
+doctorRef.on("value",snap=>{
+  doctor.innerText=snap.val()?("Doctor: "+snap.val()):"";
 });
 </script>
 
